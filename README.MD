@@ -72,7 +72,7 @@ _Finalized at the end of Sprint 1._ Candidates:
 
 Models only. Whoever changes an entity updates this diagram **in the same PR**.
 
-> **Status:** planned model from the design doc. No entities exist in the code yet. The #7 PR replaces this with the exact fields as built.
+> **Status:** matches the entities built in #7 (`src/main/java/com/sysc4806/gradadmissions/model`). `Document` and `Evaluation` are still planned and are added by the issues that need them.
 
 ```mermaid
 classDiagram
@@ -97,28 +97,29 @@ classDiagram
         String name
     }
 
+    class AdmissionCycle {
+        Long id
+        String name
+        LocalDate applicationDeadline
+        LocalDate evaluationDeadline
+        boolean active
+    }
+
     class Application {
         Long id
-        String phone
-        String country
         ApplicationStatus status
         LocalDateTime submittedAt
+        addPreferredProfessor(Professor)
+        submit(LocalDateTime)
     }
 
-    class Document {
-        Long id
-        DocumentType type
-        String fileName
-        String contentType
-        byte[] data
-    }
-
-    class Evaluation {
-        Long id
-        LocalDateTime assignedAt
-        Recommendation recommendation
-        String comment
-        LocalDateTime evaluatedAt
+    class PersonalInfo {
+        <<embeddable>>
+        String firstName
+        String lastName
+        String email
+        String phoneNumber
+        String citizenship
     }
 
     class ApplicationStatus {
@@ -130,31 +131,20 @@ classDiagram
         ADMITTED
         REJECTED
     }
-    class DocumentType {
-        <<enumeration>>
-        CV
-        DIPLOMA
-        GRADE_AUDIT
-    }
-    class Recommendation {
-        <<enumeration>>
-        NOT_RECOMMENDED
-        RECOMMEND_NO_SUPERVISION
-        RECOMMEND_NO_FUNDING
-        RECOMMEND_WITH_FUNDING
-    }
 
-    Applicant "1" --> "*" Application : applications
-    Application "*" --> "1" ResearchField : desiredField
-    Application "*" --> "1..3" Professor : preferredProfessors
-    Professor "*" -- "*" ResearchField : researchFields
-    Application "1" *-- "*" Document : documents
-    Application "1" *-- "*" Evaluation : evaluations
-    Evaluation "*" --> "1" Professor : assignedTo
+    Application "*" --> "1" Applicant : applicant
+    Application "*" --> "1" AdmissionCycle : cycle
+    Application *-- "1" PersonalInfo : personalInfo
+    Application "*" --> "0..1" ResearchField : desiredField
+    Application "*" --> "0..3" Professor : preferredProfessors
+    Professor "*" --> "*" ResearchField : researchFields
     Application --> ApplicationStatus
-    Document --> DocumentType
-    Evaluation --> Recommendation
 ```
+
+**Rules enforced in `Application`:**
+- At most 3 preferred professors (`MAX_PREFERRED_PROFESSORS`). This is our team's assumption: the project description only says "a list of profs", so the limit is one constant if we change it.
+- A draft can be missing its desired field and professors. `submit()` requires a desired field and at least one professor, and only a `DRAFT` can be submitted.
+- `PersonalInfo` is embedded, so its fields are columns in the `application` table rather than a separate table.
 
 **Status flow.** Only the admin changes an application's status:
 
@@ -169,21 +159,22 @@ stateDiagram-v2
     UNDER_REVIEW --> REJECTED : admin decides
 ```
 
-An `Evaluation` row is created when the admin routes an application to a professor. Its `recommendation` stays empty until the professor submits an assessment. A professor's assessment never changes the application's status.
+`SCREENED_OUT` through `REJECTED` are in the enum now, but the admin actions that set them come in later issues. The planned design: an `Evaluation` row is created when the admin routes an application to a professor, its `recommendation` stays empty until the professor submits an assessment, and a professor's assessment never changes the application's status.
 
 ### ORM patterns
 
 | Pattern | Where | Why |
 |---|---|---|
 | Class Table Inheritance (`@Inheritance(JOINED)`) | `users` + `applicant`, `professor`, `admin` tables. Each subclass PK is also an FK to `users.id` | Subclasses have their own relationships. SINGLE_TABLE can't put NOT NULL on subclass-only columns. TABLE_PER_CLASS makes polymorphic queries a UNION. Cost: one join per subclass load. |
-| Association Table Mapping (`@ManyToMany` + `@JoinTable`) | `professor_research_field`, `application_preferred_professor` | Many-to-many needs a join table with a composite PK. |
-| Foreign Key Mapping (`@ManyToOne` / `@OneToMany(mappedBy)`) | `application.applicant_id`, `application.research_field_id`, `document.application_id`, `evaluation.application_id`, `evaluation.professor_id` | The "many" side owns the FK column. |
+| Association Table Mapping (`@ManyToMany` + `@JoinTable`) | `professor_research_fields`, `application_preferred_professors` | Many-to-many needs a join table with a composite PK. |
+| Foreign Key Mapping (`@ManyToOne`) | `application.applicant_id`, `application.cycle_id`, `application.desired_field_id` | The "many" side owns the FK column. |
+| Embedded Value (`@Embeddable` / `@Embedded`) | `PersonalInfo` columns inside `application` | A value object with no identity of its own, so it doesn't need its own table. |
 | Identity Field (`GenerationType.IDENTITY`) | Every root entity | Surrogate keys generated by the database. |
-| Enum mapping (`@Enumerated(STRING)`) | status, document type, recommendation | Reordering an enum can't corrupt stored rows. |
+| Enum mapping (`@Enumerated(STRING)`) | `application.status` | Reordering an enum can't corrupt stored rows. |
 
 ## Database schema
 
-> **Status:** target schema for the planned model. Once #7 merges, replace it with the DDL Hibernate actually generates (command below).
+> **Status:** generated by Hibernate from the #7 entities (PostgreSQL dialect). The full DDL is in [`docs/schema.sql`](docs/schema.sql).
 
 ```mermaid
 erDiagram
@@ -191,14 +182,12 @@ erDiagram
     users ||--o| professor : "id"
     users ||--o| admin : "id"
     applicant ||--o{ application : "applicant_id"
-    research_field ||--o{ application : "research_field_id"
-    application ||--o{ application_preferred_professor : ""
-    professor ||--o{ application_preferred_professor : ""
-    professor ||--o{ professor_research_field : ""
-    research_field ||--o{ professor_research_field : ""
-    application ||--o{ document : "application_id"
-    application ||--o{ evaluation : "application_id"
-    professor ||--o{ evaluation : "professor_id"
+    admission_cycle ||--o{ application : "cycle_id"
+    research_field |o--o{ application : "desired_field_id"
+    application ||--o{ application_preferred_professors : "application_id"
+    professor ||--o{ application_preferred_professors : "professor_id"
+    professor ||--o{ professor_research_fields : "professor_id"
+    research_field ||--o{ professor_research_fields : "research_field_id"
 
     users {
         bigint id PK
@@ -212,39 +201,33 @@ erDiagram
         bigint id PK
         varchar name UK
     }
+    admission_cycle {
+        bigint id PK
+        varchar name UK
+        date application_deadline
+        date evaluation_deadline
+        boolean active
+    }
     application {
         bigint id PK
         bigint applicant_id FK
-        bigint research_field_id FK
+        bigint cycle_id FK
+        bigint desired_field_id FK "nullable until submit"
+        varchar first_name
+        varchar last_name
+        varchar email
+        varchar phone_number
+        varchar citizenship
         varchar status
-        varchar phone
-        varchar country
         timestamp submitted_at
     }
-    application_preferred_professor {
+    application_preferred_professors {
         bigint application_id PK,FK
         bigint professor_id PK,FK
     }
-    professor_research_field {
+    professor_research_fields {
         bigint professor_id PK,FK
         bigint research_field_id PK,FK
-    }
-    document {
-        bigint id PK
-        bigint application_id FK
-        varchar type
-        varchar file_name
-        varchar content_type
-        bytea data
-    }
-    evaluation {
-        bigint id PK
-        bigint application_id FK
-        bigint professor_id FK
-        timestamp assigned_at
-        varchar recommendation
-        varchar comment
-        timestamp evaluated_at
     }
 ```
 
