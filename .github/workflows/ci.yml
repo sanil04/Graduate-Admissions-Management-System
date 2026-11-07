@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Lets a deploy be re-run by hand from the Actions tab (e.g. after fixing an Azure setting)
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,3 +24,36 @@ jobs:
 
       - name: Build and run tests
         run: ./mvnw -B verify
+
+      - name: Upload JAR for deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+          if-no-files-found: error
+
+  deploy:
+    # Only deploy code that passed the build, and only from main (never from PRs)
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    # Merges close together deploy one after another instead of at the same time
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: '*.jar'
