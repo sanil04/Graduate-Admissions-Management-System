@@ -18,7 +18,7 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 
 | | |
 |---|---|
-| **Production** | TBA |
+| **Production** | <https://sysc4806-gradadmissions-fxe8abasgfd9b6ea.francecentral-01.azurewebsites.net/> |
 | **Kanban** | [Projects tab](https://github.com/sanil04/SYSC-4806-Group-Project/projects) |
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
 
