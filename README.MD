@@ -1,22 +1,28 @@
-# SYSC 4806 Group Project: Graduate Admissions System
+# Graduate Admissions Management System
 
-A Spring MVC web app for graduate school admissions. Applicants submit an application with their documents, research interests and their preferred supervisors. Professors can then review applications within their research fields and proceed to give a recommendation. Admins run each admission cycle and make the final call. 
+![CI](https://github.com/sanil04/SYSC-4806-Group-Project/actions/workflows/ci.yml/badge.svg)
 
 Contributors include:
 
-Qurb E Muhammad Syed
-Alexander Gardiner
-Sanil Srivastava
-Ahmed Al-Khazaali
+1) Qurb E Muhammad Syed
+2) Alexander Gardiner
+3) Sanil Srivastava
+4) Ahmed Al-Khazaali
 
+
+SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
+
+- **Applicants** submit a file with personal info, a desired research field, 1-3 preferred professors and documents (CV, diploma, grade audit) before the submission deadline.
+- **Professors** keep a profile listing their research fields. They're emailed when applicants are routed to them, then enter an assessment before the evaluation deadline.
+- **Admins** screen applications, route the good ones to professors, read the recommendations and make the final decision.
 
 | | |
 |---|---|
-| **Production** | TBD |
+| **Production** | TBA |
 | **Kanban** | [Projects tab](https://github.com/sanil04/SYSC-4806-Group-Project/projects) |
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
 
-**Stack:** Java 21, Spring Boot (Spring MVC, Thymeleaf, Spring Data JPA, Bean Validation), H2 for local dev and tests, PostgreSQL in production, Azure App Service, GitHub Actions.
+**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf + Bootstrap, Spring Data JPA, Bean Validation). H2 locally and in tests, managed PostgreSQL on Azure in production. Spring Security and Spring Mail come in Sprint 2. Deployed to Azure App Service by GitHub Actions.
 
 ---
 
@@ -24,17 +30,19 @@ Ahmed Al-Khazaali
 
 _Mirrors the Kanban. Updated at the end of each sprint._
 
-| Item | Status |
-|---|---|
-| Repo, CI, branch protection, Kanban | Done |
-| Azure App Service + CD (Hello World live) | In progress |
-| Domain model: User hierarchy, ResearchField | Backlog |
-| Domain model: Application, AdmissionCycle | Backlog |
-| Domain model: Document, Evaluation | Backlog |
-| Seed data | Backlog |
-| Use case: applicant submits an application | Backlog |
-| Use case: admin views submitted applications | Backlog |
-| README: UML + schema | In progress |
+| Issue | Item | Status |
+|---|---|---|
+| #1 | Spring Boot project with Maven | Done |
+| #2 | CI with GitHub Actions | In progress |
+| #3 | Deploy to Azure App Service | In progress |
+| #4 | Production database | Backlog |
+| #5 | Branch protection + Kanban | In progress |
+| #6 | README skeleton | In review |
+| #7 | Domain entities | Backlog |
+| #10 | Professor profile | Backlog |
+| #11 | Application form | Backlog |
+| #12 | Admin application list | Backlog |
+| #13 | Home page and navigation | Backlog |
 
 ## Sprint plan
 
@@ -42,18 +50,21 @@ _Mirrors the Kanban. Updated at the end of each sprint._
 
 Goal: one use case working end to end, deployed on Azure.
 
-> An applicant fills in the application form (personal info, desired research fields, preferred professors). It's validated and saved. An admin opens the applications list and sees it, with a detail page per application.
+> A professor sets up their profile with research fields. An applicant fills in the application, picks that professor, and submits. The admin opens the applications list and sees it.
 
-Supporting work: entities and repositories for the full model, seed data (research fields, professors, an active admission cycle), unit tests per layer and one integration test covering submit → list.
+There's no login in Sprint 1. Users are seeded, and the home page has a role picker (Applicant / Professor / Admin).
+
+Supporting work: the entities and seed data, CI on every PR, a deploy on every merge to `main`, unit tests per controller, and one end-to-end test (submit an application, then see it in the admin list).
 
 ### Sprint 2: Milestone 2, alpha (demo Nov 26)
 
 _Finalized at the end of Sprint 1._ Candidates:
-- Document upload (CV, diploma, grade audit) and download
-- Professor dashboard: applications matching their research fields
-- Professor evaluations with a recommendation and comment
-- Admin status changes: shortlist, admit, reject
-- Enforce admission-cycle deadlines on submit and evaluate
+- Login and role-based access with Spring Security
+- Document upload and download (CV, diploma, grade audit)
+- Admin screening (screen out or move to review) and routing to professors
+- Email notification to professors when applicants are routed to them
+- Professor assessment form
+- Submission and evaluation deadlines enforced
 
 ---
 
@@ -61,7 +72,7 @@ _Finalized at the end of Sprint 1._ Candidates:
 
 Models only. Whoever changes an entity updates this diagram **in the same PR**.
 
-> **Status:** planned model for Sprint 1. Each model PR brings its classes in line with the code.
+> **Status:** planned model from the design doc. No entities exist in the code yet. The #7 PR replaces this with the exact fields as built.
 
 ```mermaid
 classDiagram
@@ -70,10 +81,8 @@ classDiagram
     class User {
         <<abstract>>
         Long id
-        String username
+        String name
         String email
-        String firstName
-        String lastName
     }
     class Applicant
     class Professor
@@ -88,25 +97,10 @@ classDiagram
         String name
     }
 
-    class AdmissionCycle {
-        Long id
-        String name
-        LocalDateTime submissionDeadline
-        LocalDateTime evaluationDeadline
-        boolean active
-    }
-
-    class PersonalInfo {
-        <<embeddable>>
-        String firstName
-        String lastName
-        String contactEmail
-        String phone
-        String country
-    }
-
     class Application {
         Long id
+        String phone
+        String country
         ApplicationStatus status
         LocalDateTime submittedAt
     }
@@ -117,11 +111,11 @@ classDiagram
         String fileName
         String contentType
         byte[] data
-        LocalDateTime uploadedAt
     }
 
     class Evaluation {
         Long id
+        LocalDateTime assignedAt
         Recommendation recommendation
         String comment
         LocalDateTime evaluatedAt
@@ -129,8 +123,9 @@ classDiagram
 
     class ApplicationStatus {
         <<enumeration>>
+        DRAFT
         SUBMITTED
-        SHORTLISTED
+        SCREENED_OUT
         UNDER_REVIEW
         ADMITTED
         REJECTED
@@ -150,35 +145,45 @@ classDiagram
     }
 
     Applicant "1" --> "*" Application : applications
-    Application "*" --> "0..1" AdmissionCycle
-    Application *-- "1" PersonalInfo
-    Application "*" --> "*" ResearchField : desiredFields
-    Application "*" --> "*" Professor : preferredProfessors
+    Application "*" --> "1" ResearchField : desiredField
+    Application "*" --> "1..3" Professor : preferredProfessors
     Professor "*" -- "*" ResearchField : researchFields
     Application "1" *-- "*" Document : documents
     Application "1" *-- "*" Evaluation : evaluations
-    Evaluation "*" --> "1" Professor
+    Evaluation "*" --> "1" Professor : assignedTo
     Application --> ApplicationStatus
     Document --> DocumentType
     Evaluation --> Recommendation
 ```
 
+**Status flow.** Only the admin changes an application's status:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> DRAFT
+    DRAFT --> SUBMITTED : applicant submits
+    SUBMITTED --> SCREENED_OUT : admin screens out
+    SUBMITTED --> UNDER_REVIEW : admin routes to profs
+    UNDER_REVIEW --> ADMITTED : admin decides
+    UNDER_REVIEW --> REJECTED : admin decides
+```
+
+An `Evaluation` row is created when the admin routes an application to a professor. Its `recommendation` stays empty until the professor submits an assessment. A professor's assessment never changes the application's status.
+
 ### ORM patterns
 
 | Pattern | Where | Why |
 |---|---|---|
-| Class Table Inheritance (`@Inheritance(JOINED)`) | `users` + `applicant`, `professor`, `admin` tables. Each subclass PK is also an FK to `users.id` | Subclasses have their own relationships and NOT NULL columns. SINGLE_TABLE can't enforce NOT NULL on subclass columns. TABLE_PER_CLASS turns polymorphic queries into a UNION and can't use IDENTITY ids. Cost: one join per subclass load. |
-| Association Table Mapping (`@ManyToMany` + `@JoinTable`) | `professor_research_field`, `application_desired_field`, `application_preferred_professor` | Many-to-many needs a join table with a composite PK. |
-| Foreign Key Mapping (`@ManyToOne` / `@OneToMany(mappedBy)`) | `application.applicant_id`, `document.application_id`, `evaluation.application_id`, `evaluation.professor_id` | The "many" side owns the FK column. |
-| Embedded Value (`@Embeddable`) | `PersonalInfo` columns stored in `application` | Value object with no identity of its own. |
+| Class Table Inheritance (`@Inheritance(JOINED)`) | `users` + `applicant`, `professor`, `admin` tables. Each subclass PK is also an FK to `users.id` | Subclasses have their own relationships. SINGLE_TABLE can't put NOT NULL on subclass-only columns. TABLE_PER_CLASS makes polymorphic queries a UNION. Cost: one join per subclass load. |
+| Association Table Mapping (`@ManyToMany` + `@JoinTable`) | `professor_research_field`, `application_preferred_professor` | Many-to-many needs a join table with a composite PK. |
+| Foreign Key Mapping (`@ManyToOne` / `@OneToMany(mappedBy)`) | `application.applicant_id`, `application.research_field_id`, `document.application_id`, `evaluation.application_id`, `evaluation.professor_id` | The "many" side owns the FK column. |
 | Identity Field (`GenerationType.IDENTITY`) | Every root entity | Surrogate keys generated by the database. |
-| Enum mapping (`@Enumerated(STRING)`) | status, type, recommendation | Reordering an enum can't corrupt stored rows. Hibernate adds a CHECK constraint. |
+| Enum mapping (`@Enumerated(STRING)`) | status, document type, recommendation | Reordering an enum can't corrupt stored rows. |
 
 ## Database schema
 
-Generated by Hibernate from the entities. The production schema uses the PostgreSQL dialect.
-
-> **Status:** target schema for the Sprint 1 model. Replace with the generated DDL as model PRs merge (see below).
+> **Status:** target schema for the planned model. Once #7 merges, replace it with the DDL Hibernate actually generates (command below).
 
 ```mermaid
 erDiagram
@@ -186,9 +191,7 @@ erDiagram
     users ||--o| professor : "id"
     users ||--o| admin : "id"
     applicant ||--o{ application : "applicant_id"
-    admission_cycle ||--o{ application : "admission_cycle_id"
-    application ||--o{ application_desired_field : ""
-    research_field ||--o{ application_desired_field : ""
+    research_field ||--o{ application : "research_field_id"
     application ||--o{ application_preferred_professor : ""
     professor ||--o{ application_preferred_professor : ""
     professor ||--o{ professor_research_field : ""
@@ -199,10 +202,8 @@ erDiagram
 
     users {
         bigint id PK
-        varchar username UK
+        varchar name
         varchar email UK
-        varchar first_name
-        varchar last_name
     }
     applicant { bigint id PK,FK }
     professor { bigint id PK,FK }
@@ -211,28 +212,14 @@ erDiagram
         bigint id PK
         varchar name UK
     }
-    admission_cycle {
-        bigint id PK
-        varchar name UK
-        timestamp submission_deadline
-        timestamp evaluation_deadline
-        boolean active
-    }
     application {
         bigint id PK
         bigint applicant_id FK
-        bigint admission_cycle_id FK
+        bigint research_field_id FK
         varchar status
-        timestamp submitted_at
-        varchar first_name
-        varchar last_name
-        varchar contact_email
         varchar phone
         varchar country
-    }
-    application_desired_field {
-        bigint application_id PK,FK
-        bigint research_field_id PK,FK
+        timestamp submitted_at
     }
     application_preferred_professor {
         bigint application_id PK,FK
@@ -249,23 +236,23 @@ erDiagram
         varchar file_name
         varchar content_type
         bytea data
-        timestamp uploaded_at
     }
     evaluation {
         bigint id PK
         bigint application_id FK
         bigint professor_id FK
+        timestamp assigned_at
         varchar recommendation
         varchar comment
         timestamp evaluated_at
     }
 ```
 
-**Regenerating the DDL** after a model change (writes `docs/schema.sql`):
+**Generating the real DDL** after a model change (PostgreSQL dialect, writes `docs/schema.sql`):
 
 ```bash
-mvn -q package -DskipTests
-java -jar target/*.jar \
+./mvnw -q package -DskipTests
+java -jar target/gradadmissions-0.0.1-SNAPSHOT.jar \
   --spring.main.web-application-type=none \
   --spring.jpa.hibernate.ddl-auto=none \
   --spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \
@@ -277,39 +264,29 @@ java -jar target/*.jar \
 
 ## Build and run
 
-Requires JDK 21 and Maven 3.9+.
+Requires JDK 21 or newer. Maven isn't needed: the repo includes the Maven wrapper.
 
 ```bash
 git clone https://github.com/sanil04/SYSC-4806-Group-Project.git
 cd SYSC-4806-Group-Project
-mvn clean package          # compile, run all tests, build the JAR in target/
-java -jar target/*.jar     # http://localhost:8080
+./mvnw clean package                                  # Windows: .\mvnw.cmd clean package
+java -jar target/gradadmissions-0.0.1-SNAPSHOT.jar    # http://localhost:8080
 ```
 
-Local runs use in-memory H2, so no database setup is needed. Browse the data at http://localhost:8080/h2-console (JDBC URL `jdbc:h2:mem:admissions`, user `sa`, empty password).
+`./mvnw clean package` compiles the code, runs all tests and builds the runnable JAR. To run the tests only, use `./mvnw verify`.
 
-Tests only: `mvn verify`
+Local runs use an in-memory H2 database, so there's nothing to set up. Data resets on every restart.
 
-### Production configuration
-
-The `prod` profile (`application-prod.properties`) switches to PostgreSQL. Credentials are read from environment variables set in Azure App Service, never committed:
-
-| Variable | Value |
-|---|---|
-| `SPRING_PROFILES_ACTIVE` | `prod` |
-| `DB_URL` | `jdbc:postgresql://<server>.postgres.database.azure.com:5432/admissions?sslmode=require` |
-| `DB_USERNAME` | database user |
-| `DB_PASSWORD` | database password |
+**Production:** the managed PostgreSQL database and its Spring profile are tracked in #4. Credentials will be set as Azure App Service environment variables, never committed.
 
 ## How we work
 
 1. Take an issue from **Backlog**, assign yourself, move it to **In Progress**.
-2. Branch from `main`: `git checkout -b feature/<issue#>-short-name`
+2. Branch from `main`, one branch per issue: `git checkout -b feature/<issue#>-short-name`
 3. Open a PR with `Closes #<issue>` and request **2 reviewers**.
-4. `main` is protected. Merging needs 2 approvals and a green CI run (`mvn verify`).
-5. The author merges their own PR. Each merge to `main` triggers a deploy to Azure, so every member deploys. Target: 2-3 deploys per week.
-6. If you changed a model, update the UML and schema above in the same PR.
+4. `main` is protected. Merging needs 2 approvals and a green CI run.
+5. The author merges their own PR. Each merge to `main` deploys to Azure, so every member deploys. Target: 2-3 deploys per week.
+6. If you change a model, update the UML and schema above in the same PR.
+7. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat:`, `fix:`, `test:`, `docs:`, `ci:`, `build:`, `refactor:`, `chore:`.
 
 **Weekly scrum:** one member opens an issue titled `Weekly scrum – YYYY-MM-DD`. Everyone comments with *Done this week / Next week / Blockers*, linking issues by number.
-
-This README was edited partly with the use of AI (Claude Opus 5.5).
