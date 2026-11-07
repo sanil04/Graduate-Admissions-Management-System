@@ -4,12 +4,17 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-/**
- * The applicant's contact details as entered on an application. Embedded, so these become columns
- * of the {@code application} table rather than a separate table.
- */
+/** Contact details on an application. Embedded: stored as columns of the application table. */
 @Embeddable
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class PersonalInfo {
 
 	@NotBlank
@@ -28,60 +33,4 @@ public class PersonalInfo {
 	private String phoneNumber;
 
 	private String citizenship;
-
-	protected PersonalInfo() {
-	}
-
-	public PersonalInfo(String firstName, String lastName, String email, String phoneNumber,
-			String citizenship) {
-		this.firstName = firstName;
-		this.lastName = lastName;
-		this.email = email;
-		this.phoneNumber = phoneNumber;
-		this.citizenship = citizenship;
-	}
-
-	public String getFullName() {
-		return firstName + " " + lastName;
-	}
-
-	public String getFirstName() {
-		return firstName;
-	}
-
-	public void setFirstName(String firstName) {
-		this.firstName = firstName;
-	}
-
-	public String getLastName() {
-		return lastName;
-	}
-
-	public void setLastName(String lastName) {
-		this.lastName = lastName;
-	}
-
-	public String getEmail() {
-		return email;
-	}
-
-	public void setEmail(String email) {
-		this.email = email;
-	}
-
-	public String getPhoneNumber() {
-		return phoneNumber;
-	}
-
-	public void setPhoneNumber(String phoneNumber) {
-		this.phoneNumber = phoneNumber;
-	}
-
-	public String getCitizenship() {
-		return citizenship;
-	}
-
-	public void setCitizenship(String citizenship) {
-		this.citizenship = citizenship;
-	}
 }

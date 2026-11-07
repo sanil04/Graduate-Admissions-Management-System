@@ -1,13 +1,11 @@
 package com.sysc4806.gradadmissions.model;
 
 import jakarta.persistence.Entity;
+import lombok.NoArgsConstructor;
 
-/** A department administrator who screens applications and makes the final decision. */
 @Entity
+@NoArgsConstructor
 public class Admin extends User {
-
-	protected Admin() {
-	}
 
 	public Admin(String name, String email) {
 		super(name, email);
