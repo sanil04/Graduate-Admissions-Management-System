@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Home')}"><title>Templates</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('home')}"></header>
+<main class="container">
+    <h1>Graduate Admissions Management System</h1>
+    <p class="lead">Choose the section that matches your role.</p>
+    <div class="cards">
+        <a class="card" th:href="@{/applicant}">
+            <h2>Applicant</h2>
+            <p>Apply to the graduate program and choose the professors you would like to work with.</p>
+        </a>
+        <a class="card" th:href="@{/professor}">
+            <h2>Professor</h2>
+            <p>Manage your profile and research fields.</p>
+        </a>
+        <a class="card" th:href="@{/admin}">
+            <h2>Admin</h2>
+            <p>Review submitted applications.</p>
+        </a>
+    </div>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
