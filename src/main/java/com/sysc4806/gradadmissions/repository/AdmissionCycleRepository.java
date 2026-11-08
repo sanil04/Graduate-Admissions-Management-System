@@ -8,5 +8,5 @@ import com.sysc4806.gradadmissions.model.AdmissionCycle;
 
 public interface AdmissionCycleRepository extends JpaRepository<AdmissionCycle, Long> {
 
-	Optional<AdmissionCycle> findFirstByActiveTrue();
+	Optional<AdmissionCycle> findByActiveTrue();
 }

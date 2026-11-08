@@ -86,8 +86,21 @@ class DomainModelTest {
 
 	@Test
 	void findsTheActiveCycle() {
-		assertThat(cycles.findFirstByActiveTrue()).get()
+		assertThat(cycles.findByActiveTrue()).get()
 				.extracting(AdmissionCycle::getName).isEqualTo("Fall 2027");
+	}
+
+	@Test
+	void onlyOneCycleCanBeActive() {
+		LocalDate deadline = cycle.getApplicationDeadline();
+		LocalDate evaluation = cycle.getEvaluationDeadline();
+		AdmissionCycle nextCycle = new AdmissionCycle("Winter 2028", deadline.plusYears(1), evaluation.plusYears(1));
+		cycles.save(new AdmissionCycle("Fall 2026", deadline.minusYears(1), evaluation.minusYears(1)));
+		cycles.saveAndFlush(nextCycle);
+
+		nextCycle.setActive(true);
+		assertThatThrownBy(() -> cycles.saveAndFlush(nextCycle))
+				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
@@ -130,6 +143,23 @@ class DomainModelTest {
 		assertThat(app.getSubmittedAt()).isEqualTo(NOW);
 
 		assertThatThrownBy(() -> app.submit(NOW)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void submissionDeadlineIncludesTheWholeDay() {
+		Application app = newApplication(ada);
+		app.setDesiredField(ml);
+		app.addPreferredProfessor(alice);
+		LocalDate deadline = cycle.getApplicationDeadline();
+
+		assertThatThrownBy(() -> app.submit(deadline.plusDays(1).atStartOfDay()))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("The application deadline has passed");
+		assertThat(app.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+		assertThat(app.getSubmittedAt()).isNull();
+
+		app.submit(deadline.atTime(23, 59));
+		assertThat(app.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
 	}
 
 	@Test

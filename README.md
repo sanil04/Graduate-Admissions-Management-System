@@ -102,7 +102,7 @@ classDiagram
         String name
         LocalDate applicationDeadline
         LocalDate evaluationDeadline
-        boolean active
+        Boolean active
     }
 
     class Application {
@@ -143,7 +143,7 @@ classDiagram
 
 **Rules enforced in `Application`:**
 - At most 3 preferred professors (`MAX_PREFERRED_PROFESSORS`). This is our team's assumption: the project description only says "a list of profs", so the limit is one constant if we change it.
-- A draft can be missing its desired field and professors. `submit()` requires a desired field and at least one professor, and only a `DRAFT` can be submitted.
+- A draft can be missing its desired field and professors. `submit()` requires a `DRAFT` with a desired field and at least one professor, and accepts submissions through the cycle's deadline date.
 - `PersonalInfo` is embedded, so its fields are columns in the `application` table rather than a separate table.
 
 **Status flow.** Only the admin changes an application's status:
@@ -206,7 +206,7 @@ erDiagram
         varchar name UK
         date application_deadline
         date evaluation_deadline
-        boolean active
+        boolean active UK "NULL for inactive cycles"
     }
     application {
         bigint id PK

@@ -89,6 +89,10 @@ public class Application {
 		if (desiredField == null || preferredProfessors.isEmpty()) {
 			throw new IllegalStateException("A desired field and at least one professor are required");
 		}
+		// Submissions are allowed throughout the deadline date.
+		if (now.toLocalDate().isAfter(cycle.getApplicationDeadline())) {
+			throw new IllegalStateException("The application deadline has passed");
+		}
 		status = ApplicationStatus.SUBMITTED;
 		submittedAt = now;
 	}

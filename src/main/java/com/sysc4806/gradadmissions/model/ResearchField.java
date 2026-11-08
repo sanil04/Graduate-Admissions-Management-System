@@ -5,12 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-/** Equal by name (unique), so fields behave correctly in sets even before they are saved. */
+/** Keep the name fixed because it determines equality and hash codes in sets. */
 @Entity
 @Getter
-@Setter
 @NoArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ResearchField {
