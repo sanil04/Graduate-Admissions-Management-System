@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Applicant')}"><title>Applicant</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('applicant')}"></header>
+<main class="container">
+    <h1>Applicant</h1>
+    <p class="lead">Apply to the graduate program.</p>
+    <!-- Add links to this section's pages here once they are built. -->
+    <p class="notice">Nothing to do here yet. Features for this section are coming soon.</p>
+    <p><a th:href="@{/}">&larr; Back to home</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
