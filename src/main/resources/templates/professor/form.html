@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Edit Professor Profile</title>
+</head>
+<body>
+<h1>Edit Profile</h1>
+<form th:action="@{/professor/{id}/edit(id=${professor.id})}" th:object="${professor}" method="post">
+    <div>
+        <label>Name:</label>
+        <label>
+            <input type="text" th:field="*{name}" />
+        </label>
+        <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" style="color:red;">Name Error</div>
+    </div>
+
+    <div>
+        <label>Email:</label>
+        <label>
+            <input type="text" th:field="*{email}" />
+        </label>
+        <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" style="color:red;">Email Error</div>
+    </div>
+
+    <div>
+        <label>Research Fields:</label>
+        <label>
+            <select th:field="*{researchFields}" multiple="multiple">
+                <option th:each="field : ${allResearchFields}"
+                        th:value="${field.id}"
+                        th:text="${field.name}">Field</option>
+            </select>
+        </label>
+    </div>
+
+    <button type="submit">Save Changes</button>
+</form>
+</body>
+</html>

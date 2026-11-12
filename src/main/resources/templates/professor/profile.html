@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Professor Profile</title>
+</head>
+<body>
+<h1 th:text="${professor.name}">Professor Name</h1>
+<p><strong>Email:</strong> <span th:text="${professor.email}">email@carleton.ca</span></p>
+
+<h3>Research Fields:</h3>
+<ul>
+    <li th:each="field : ${professor.researchFields}" th:text="${field.name}">Field Name</li>
+</ul>
+
+<a th:href="@{/professor/{id}/edit(id=${professor.id})}">Edit Profile</a>
+</body>
+</html>
