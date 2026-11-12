@@ -1,17 +1,24 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head>
-    <title>Professor Profile</title>
-</head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Professor profile')}"><title>Professor profile</title></head>
 <body>
-<h1 th:text="${professor.name}">Professor Name</h1>
-<p><strong>Email:</strong> <span th:text="${professor.email}">email@carleton.ca</span></p>
-
-<h3>Research Fields:</h3>
-<ul>
-    <li th:each="field : ${professor.researchFields}" th:text="${field.name}">Field Name</li>
-</ul>
-
-<a th:href="@{/professor/{id}/edit(id=${professor.id})}">Edit Profile</a>
+<header th:replace="~{fragments/layout :: header('professor')}"></header>
+<main class="container">
+    <h1 th:text="${professor.name}">Professor Name</h1>
+    <dl class="details">
+        <dt>Email</dt>
+        <dd th:text="${professor.email}">email@carleton.ca</dd>
+        <dt>Research fields</dt>
+        <dd>
+            <span th:if="${#sets.isEmpty(professor.researchFields)}">None yet</span>
+            <ul class="plain-list">
+                <li th:each="field : ${professor.researchFields}" th:text="${field.name}">Field Name</li>
+            </ul>
+        </dd>
+    </dl>
+    <p><a th:href="@{/professor/{id}/edit(id=${professor.id})}">Edit profile</a></p>
+    <p><a th:href="@{/professor/profiles}">&larr; Back to all professors</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
 </html>

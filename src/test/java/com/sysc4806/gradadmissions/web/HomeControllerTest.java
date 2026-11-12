@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
+import com.sysc4806.gradadmissions.service.ProfessorService;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -18,7 +19,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 // ApplicationController and AdminController are included so the link check can follow the
 // section pages' links to /apply and /admin/applications.
-@WebMvcTest({HomeController.class, ApplicationController.class, AdminController.class})
+// ProfessorController is included for the Professor page's link to /professor/profiles.
+@WebMvcTest({HomeController.class, ApplicationController.class, AdminController.class, ProfessorController.class})
 class HomeControllerTest {
 
     @Autowired
@@ -29,6 +31,9 @@ class HomeControllerTest {
 
     @MockitoBean
     private AdminApplicationService adminApplicationService;
+
+    @MockitoBean
+    private ProfessorService professorService;
 
     @Test
     void homePageLinksToAllThreeSections() throws Exception {

@@ -1,42 +1,134 @@
 package com.sysc4806.gradadmissions.web;
 
-import com.sysc4806.gradadmissions.model.Professor;
-import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
-import com.sysc4806.gradadmissions.service.ProfessorService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.model.ResearchField;
+import com.sysc4806.gradadmissions.service.ProfessorService;
+import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
 
 @WebMvcTest(ProfessorController.class)
-public class ProfessorControllerTest {
+class ProfessorControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
+    @MockitoBean private ProfessorService service;
 
-    @MockitoBean
-    private ProfessorService professorService;
+    private ResearchField field(Long id, String name) {
+        ResearchField field = new ResearchField(name);
+        ReflectionTestUtils.setField(field, "id", id);
+        return field;
+    }
 
-    @MockitoBean
-    private ResearchFieldRepository researchFieldRepository;
+    /** Professor 1, Dr. Alan Turing, works in AI (3); Networks (4) also exists. */
+    @BeforeEach
+    void setUp() {
+        ResearchField ai = field(3L, "AI");
+        Professor turing = new Professor("Dr. Alan Turing", "turing@carleton.ca");
+        turing.setId(1L);
+        turing.getResearchFields().add(ai);
+        when(service.findById(1L)).thenReturn(Optional.of(turing));
+        when(service.findAll()).thenReturn(List.of(turing));
+        when(service.researchFields()).thenReturn(List.of(ai, field(4L, "Networks")));
+    }
 
     @Test
-    public void testViewProfile() throws Exception {
-        Professor prof = new Professor();
-        prof.setId(1L);
-        prof.setName("Dr. Alan Turing");
-        prof.setEmail("turing@carleton.ca");
+    void listLinksToEachProfile() throws Exception {
+        mockMvc.perform(get("/professor/profiles"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/list"))
+                .andExpect(content().string(containsString("href=\"/professor/1\"")))
+                .andExpect(content().string(containsString("Dr. Alan Turing")));
+    }
 
-        when(professorService.findById(1L)).thenReturn(prof);
-
+    @Test
+    void profileShowsNameEmailAndResearchFields() throws Exception {
         mockMvc.perform(get("/professor/1"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("professor/profile"))
-                .andExpect(model().attributeExists("professor"));
+                .andExpect(content().string(containsString("Dr. Alan Turing")))
+                .andExpect(content().string(containsString("turing@carleton.ca")))
+                .andExpect(content().string(containsString("<li>AI</li>")))
+                .andExpect(content().string(containsString("href=\"/professor/1/edit\"")));
+    }
+
+    @Test
+    void unknownProfessorIsNotFound() throws Exception {
+        mockMvc.perform(get("/professor/99")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/professor/99/edit")).andExpect(status().isNotFound());
+        mockMvc.perform(post("/professor/99/edit")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void editFormIsPrefilledWithTheCurrentFieldsSelected() throws Exception {
+        mockMvc.perform(get("/professor/1/edit"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/form"))
+                .andExpect(content().string(containsString("value=\"Dr. Alan Turing\"")))
+                .andExpect(content().string(containsString("<option value=\"3\" selected=\"selected\">AI</option>")))
+                .andExpect(content().string(containsString("<option value=\"4\">Networks</option>")));
+    }
+
+    @Test
+    void validUpdateIsSavedAndRedirectsToTheProfile() throws Exception {
+        mockMvc.perform(post("/professor/1/edit")
+                        .param("name", "Alan Turing")
+                        .param("email", "alan@carleton.ca")
+                        .param("researchFieldIds", "3", "4"))
+                .andExpect(redirectedUrl("/professor/1"));
+
+        ArgumentCaptor<ProfessorFormDto> form = ArgumentCaptor.forClass(ProfessorFormDto.class);
+        verify(service).update(eq(1L), form.capture());
+        assertThat(form.getValue().getName()).isEqualTo("Alan Turing");
+        assertThat(form.getValue().getEmail()).isEqualTo("alan@carleton.ca");
+        assertThat(form.getValue().getResearchFieldIds()).isEqualTo(Set.of(3L, 4L));
+    }
+
+    @Test
+    void validationErrorsAreShownOnTheFormWithoutSaving() throws Exception {
+        mockMvc.perform(post("/professor/1/edit").param("name", "").param("email", "not-an-email"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/form"))
+                .andExpect(model().attributeHasFieldErrors("form", "name", "email"))
+                .andExpect(content().string(containsString("Name cannot be blank")))
+                .andExpect(content().string(containsString("Invalid email format")));
+
+        verify(service, never()).update(any(), any());
+    }
+
+    @Test
+    void anEmailUsedByAnotherAccountIsShownOnTheForm() throws Exception {
+        when(service.update(eq(1L), any()))
+                .thenThrow(new IllegalArgumentException("That email address belongs to another account"));
+
+        mockMvc.perform(post("/professor/1/edit").param("name", "Alan Turing").param("email", "taken@carleton.ca"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/form"))
+                .andExpect(content().string(containsString("That email address belongs to another account")));
     }
 }
