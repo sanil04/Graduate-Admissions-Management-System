@@ -18,16 +18,19 @@ import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 
 /**
- * End-to-end: submit an application through the applicant form, then confirm
- * it shows up on the admin list (issue #14).
+ * End-to-end:- submit an application proposal thru the applicant form, then confirm
+ * it shows up on the admin list (issue 14).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class SubmitApplicationToAdminIT {
 
 	@Autowired private MockMvc mockMvc;
+
 	@Autowired private ResearchFieldRepository fields;
+
 	@Autowired private ProfessorRepository professors;
+    
 
 	@Test
 	void submittedApplicationAppearsInAdminList() throws Exception {
@@ -37,9 +40,11 @@ class SubmitApplicationToAdminIT {
 		mockMvc.perform(post("/apply")
 						.param("personalInfo.firstName", "Ada")
 						.param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.citizenship", "Canada")
+
 						.param("personalInfo.email", "ada.e2e@example.com")
 						.param("personalInfo.phoneNumber", "613-555-0100")
-						.param("personalInfo.citizenship", "Canada")
+						
 						.param("desiredFieldId", fieldId.toString())
 						.param("professorIds", professor.getId().toString()))
 				.andExpect(redirectedUrlPattern("/apply/confirmation/*"));
