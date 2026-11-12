@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Edit profile')}"><title>Edit profile</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('professor')}"></header>
+<main class="container">
+    <h1>Edit profile</h1>
+    <form th:action="@{/professor/{id}/edit(id=${professorId})}" th:object="${form}" method="post">
+        <p>
+            <label for="name">Name</label><br>
+            <input id="name" type="text" th:field="*{name}">
+            <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Error</span>
+        </p>
+        <p>
+            <label for="email">Email</label><br>
+            <input id="email" type="email" th:field="*{email}">
+            <span th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Error</span>
+        </p>
+        <p>
+            <label for="researchFieldIds">Research fields</label><br>
+            <select id="researchFieldIds" th:field="*{researchFieldIds}" multiple size="6">
+                <option th:each="field : ${allResearchFields}" th:value="${field.id}" th:text="${field.name}">Field</option>
+            </select><br>
+            <small>Hold Ctrl (Cmd on Mac) to select more than one.</small>
+        </p>
+        <p><button type="submit">Save changes</button></p>
+    </form>
+    <p><a th:href="@{/professor/{id}(id=${professorId})}">&larr; Back to profile</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

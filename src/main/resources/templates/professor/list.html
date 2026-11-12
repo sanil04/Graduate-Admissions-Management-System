@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Professors')}"><title>Professors</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('professor')}"></header>
+<main class="container">
+    <h1>Professor profiles</h1>
+    <p class="lead">Choose your profile to view or edit it.</p>
+    <p class="notice" th:if="${#lists.isEmpty(professors)}">There are no professors yet.</p>
+    <ul>
+        <li th:each="professor : ${professors}">
+            <a th:href="@{/professor/{id}(id=${professor.id})}" th:text="${professor.name}">Alice Chen</a>
+        </li>
+    </ul>
+    <p><a th:href="@{/professor}">&larr; Back to professor page</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
