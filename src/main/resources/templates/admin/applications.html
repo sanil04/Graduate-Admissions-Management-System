@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Applications')}"><title>Applications</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('admin')}"></header>
+<main class="container">
+    <h1>Submitted applications</h1>
+    <p class="lead" th:text="${#lists.size(applications)} + ' application(s), newest first.'">2 application(s), newest first.</p>
+
+    <p class="notice" th:if="${#lists.isEmpty(applications)}">No applications have been submitted yet.</p>
+
+    <div class="table-wrap" th:unless="${#lists.isEmpty(applications)}">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th scope="col">Applicant</th>
+                <th scope="col">Desired field</th>
+                <th scope="col">Preferred professors</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="app : ${applications}">
+                <td>
+                    <a th:href="@{/admin/applications/{id}(id=${app.id})}"
+                       th:text="${app.personalInfo.firstName} + ' ' + ${app.personalInfo.lastName}">Ada Lovelace</a>
+                </td>
+                <td th:text="${app.desiredField} ? ${app.desiredField.name} : '-'">AI</td>
+                <td>
+                    <ul class="plain-list">
+                        <li th:each="professor : ${app.preferredProfessors}" th:text="${professor.name}">Alice Chen</li>
+                    </ul>
+                </td>
+                <td th:text="${#temporals.format(app.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-07 12:00</td>
+                <td><span class="status" th:text="${app.status}">SUBMITTED</span></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p><a th:href="@{/admin}">&larr; Back to admin page</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

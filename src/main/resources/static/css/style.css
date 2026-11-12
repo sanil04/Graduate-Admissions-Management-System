@@ -46,4 +46,15 @@ a { color: var(--primary); }
 .card p { margin-bottom: 0; color: var(--muted); }
 .notice { background: var(--surface); border: 1px dashed var(--border); border-radius: 8px; padding: 1rem; color: var(--muted); }
 
+.table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+.data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); }
+.data-table th, .data-table td { text-align: left; vertical-align: top; padding: .6rem .8rem; border-bottom: 1px solid var(--border); }
+.data-table th { background: var(--bg); font-weight: 600; }
+.data-table tbody tr:hover { background: var(--bg); }
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.status { display: inline-block; padding: .1rem .5rem; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); font-size: .85rem; font-weight: 600; }
+.details { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1.5rem; }
+.details dt { font-weight: 600; color: var(--muted); }
+.details dd { margin: 0; }
+
 .site-footer { border-top: 1px solid var(--border); color: var(--muted); padding: 1rem 0; font-size: .9rem; }

@@ -129,8 +129,6 @@ class ApplicationControllerTest {
                 .andExpect(content().string(containsString("The application deadline has passed")));
     }
 
-/**
- * This test throws an error at runtime. Didn't have enough time to diagnose, will fix when time constraints lighten
     @Test
     void confirmationShowsTheSubmittedApplication() throws Exception {
         AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
@@ -149,7 +147,6 @@ class ApplicationControllerTest {
                 .andExpect(content().string(containsString("Machine Learning")))
                 .andExpect(content().string(containsString("Alice Chen")));
     }
- */
 
     @Test
     void confirmationForAnUnknownApplicationIsNotFound() throws Exception {

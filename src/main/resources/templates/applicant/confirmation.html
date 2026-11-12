@@ -5,18 +5,18 @@
 <header th:replace="~{fragments/layout :: header('applicant')}"></header>
 <main class="container">
     <h1>Application submitted</h1>
-    <p class="lead">Thank you, <span th:text="${application.personalInfo.firstName}">Ada</span>. We have received your application.</p>
+    <p class="lead">Thank you, <span th:text="${app.personalInfo.firstName}">Ada</span>. We have received your application.</p>
     <dl>
         <dt>Status</dt>
-        <dd th:text="${application.status}">SUBMITTED</dd>
+        <dd th:text="${app.status}">SUBMITTED</dd>
         <dt>Submitted at</dt>
-        <dd th:text="${#temporals.format(application.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-07 12:00</dd>
+        <dd th:text="${#temporals.format(app.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-07 12:00</dd>
         <dt>Research field</dt>
-        <dd th:text="${application.desiredField.name}">AI</dd>
+        <dd th:text="${app.desiredField.name}">AI</dd>
         <dt>Preferred professors</dt>
         <dd>
             <ul>
-                <li th:each="professor : ${application.preferredProfessors}" th:text="${professor.name}">Professor</li>
+                <li th:each="professor : ${app.preferredProfessors}" th:text="${professor.name}">Professor</li>
             </ul>
         </dd>
     </dl>

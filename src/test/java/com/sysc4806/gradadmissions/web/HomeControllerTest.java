@@ -6,6 +6,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 
 import static org.hamcrest.Matchers.containsString;
@@ -15,8 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-// ApplicationController is included so the link check can follow the Applicant page's link to /apply.
-@WebMvcTest({HomeController.class, ApplicationController.class})
+// ApplicationController and AdminController are included so the link check can follow the
+// section pages' links to /apply and /admin/applications.
+@WebMvcTest({HomeController.class, ApplicationController.class, AdminController.class})
 class HomeControllerTest {
 
     @Autowired
@@ -24,6 +26,9 @@ class HomeControllerTest {
 
     @MockitoBean
     private ApplicationService applicationService;
+
+    @MockitoBean
+    private AdminApplicationService adminApplicationService;
 
     @Test
     void homePageLinksToAllThreeSections() throws Exception {
