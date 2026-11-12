@@ -69,7 +69,8 @@ public class ApplicationController {
     public String confirmation(@PathVariable Long id, Model model) {
         Application application = service.findApplication(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        model.addAttribute("application", application);
+        // Not "application": that name is reserved in Thymeleaf (the servlet context) and would be null.
+        model.addAttribute("app", application);
         return "applicant/confirmation";
     }
 

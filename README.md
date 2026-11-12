@@ -35,7 +35,7 @@ _Mirrors the Kanban. Updated at the end of each sprint._
 | #1 | Spring Boot project with Maven | Done |
 | #2 | CI with GitHub Actions | In progress |
 | #3 | Deploy to Azure App Service | In progress |
-| #4 | Production database | Backlog |
+| #4 | Production database | In progress |
 | #5 | Branch protection + Kanban | In progress |
 | #6 | README skeleton | In review |
 | #7 | Domain entities | Backlog |
@@ -260,7 +260,34 @@ java -jar target/gradadmissions-0.0.1-SNAPSHOT.jar    # http://localhost:8080
 
 Local runs use an in-memory H2 database, so there's nothing to set up. Data resets on every restart.
 
-**Production:** the managed PostgreSQL database and its Spring profile are tracked in #4. Credentials will be set as Azure App Service environment variables, never committed.
+### Production database
+
+The `prod` profile uses PostgreSQL. The Azure account owner supplies these values in App Service.
+
+| App setting | Value |
+|---|---|
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `DB_URL` | `jdbc:postgresql://<server>.postgres.database.azure.com:5432/gradadmissions` |
+| `DB_USERNAME` | The PostgreSQL login |
+| `DB_PASSWORD` | The password for that login |
+
+1. In Azure Portal, create an **Azure Database for PostgreSQL Flexible Server** in the app's resource group and region. Choose PostgreSQL authentication and keep the login and password for the settings above.
+2. On the PostgreSQL server, open **Databases** and add a database named `gradadmissions`. The login used by the app needs permission to create and update its tables.
+3. Open the existing **App Service > Properties** and copy all **Outbound IP Addresses**. On the PostgreSQL server's **Networking** page, add each address to its public-access firewall rules and save.
+4. After this code is merged into `main` and the GitHub Actions deployment succeeds, open **App Service > Settings > Environment variables > App settings**. Add the four settings above. Replace `<server>` with the PostgreSQL server name from its Overview page.
+5. Apply each setting, then apply the changes on the Environment variables page. Azure restarts the app with the `prod` profile. Credentials stay in App Service settings.
+6. Open the app's home page and check **Monitoring > Log stream** for a successful startup with the `prod` profile and a PostgreSQL connection. Query the database using the statements below, restart App Service, and confirm that the same records remain.
+
+```sql
+SELECT id, email FROM users ORDER BY id;
+SELECT id, name FROM research_field ORDER BY id;
+```
+
+Production connections verify the server's TLS certificate using Java's trusted certificates. Hibernate uses `update` so this prototype creates its tables and keeps existing rows across restarts. The data seeder reuses its existing sample records.
+
+The code is configured for these steps. Creating the Azure database and verifying the deployed connection complete the remaining issue #4 tasks.
+
+Azure documents the app settings and database firewall rules. [App settings](https://learn.microsoft.com/en-us/azure/app-service/configure-common?tabs=portal), [firewall rules](https://learn.microsoft.com/en-us/azure/postgresql/security/security-firewall-rules).
 
 ## How we work
 
