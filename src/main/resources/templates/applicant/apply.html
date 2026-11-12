@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Apply')}"><title>Apply</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('applicant')}"></header>
+<main class="container">
+    <h1>Submit an application</h1>
+    <p class="lead">Tell us about yourself, then choose your research field and up to three professors.</p>
+
+    <form th:action="@{/apply}" th:object="${form}" method="post">
+        <div class="notice" th:if="${#fields.hasGlobalErrors()}">
+            <p th:each="error : ${#fields.globalErrors()}" th:text="${error}">Something went wrong.</p>
+        </div>
+
+        <fieldset>
+            <legend>Personal information</legend>
+            <p>
+                <label for="firstName">First name</label><br>
+                <input id="firstName" type="text" th:field="*{personalInfo.firstName}">
+                <span th:if="${#fields.hasErrors('personalInfo.firstName')}" th:errors="*{personalInfo.firstName}">Error</span>
+            </p>
+            <p>
+                <label for="lastName">Last name</label><br>
+                <input id="lastName" type="text" th:field="*{personalInfo.lastName}">
+                <span th:if="${#fields.hasErrors('personalInfo.lastName')}" th:errors="*{personalInfo.lastName}">Error</span>
+            </p>
+            <p>
+                <label for="email">Email</label><br>
+                <input id="email" type="email" th:field="*{personalInfo.email}">
+                <span th:if="${#fields.hasErrors('personalInfo.email')}" th:errors="*{personalInfo.email}">Error</span>
+            </p>
+            <p>
+                <label for="phoneNumber">Phone number (optional)</label><br>
+                <input id="phoneNumber" type="tel" th:field="*{personalInfo.phoneNumber}">
+            </p>
+            <p>
+                <label for="citizenship">Citizenship (optional)</label><br>
+                <input id="citizenship" type="text" th:field="*{personalInfo.citizenship}">
+            </p>
+        </fieldset>
+
+        <fieldset>
+            <legend>Research</legend>
+            <p>
+                <label for="desiredFieldId">Desired research field</label><br>
+                <select id="desiredFieldId" th:field="*{desiredFieldId}" th:attr="data-url=@{/apply/professors}">
+                    <option value="">-- Choose a field --</option>
+                    <option th:each="field : ${fields}" th:value="${field.id}" th:text="${field.name}">Field</option>
+                </select>
+                <span th:if="${#fields.hasErrors('desiredFieldId')}" th:errors="*{desiredFieldId}">Error</span>
+            </p>
+            <p>
+                <label for="professorIds">Preferred professors (1 to 3)</label><br>
+                <select id="professorIds" th:field="*{professorIds}" multiple size="6">
+                    <option th:each="professor : ${professors}" th:value="${professor.id}" th:text="${professor.name}">Professor</option>
+                </select><br>
+                <small>Choose a research field first. Hold Ctrl (Cmd on Mac) to select more than one.</small>
+                <span th:if="${#fields.hasErrors('professorIds')}" th:errors="*{professorIds}">Error</span>
+            </p>
+        </fieldset>
+
+        <p><button type="submit">Submit application</button></p>
+    </form>
+    <p><a th:href="@{/applicant}">&larr; Back to applicant page</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script>
+    // Reload the professor list from the server whenever the research field changes.
+    const field = document.getElementById('desiredFieldId');
+    const professors = document.getElementById('professorIds');
+    field.addEventListener('change', async () => {
+        professors.innerHTML = '';
+        if (!field.value) {
+            return;
+        }
+        const response = await fetch(field.dataset.url + '?fieldId=' + encodeURIComponent(field.value));
+        if (!response.ok) {
+            return;
+        }
+        for (const professor of await response.json()) {
+            const option = document.createElement('option');
+            option.value = professor.id;
+            option.textContent = professor.name;
+            professors.appendChild(option);
+        }
+    });
+</script>
+</body>
+</html>

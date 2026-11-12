@@ -3,21 +3,27 @@ package com.sysc4806.gradadmissions.web;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.sysc4806.gradadmissions.service.ApplicationService;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-@WebMvcTest(HomeController.class)
+// ApplicationController is included so the link check can follow the Applicant page's link to /apply.
+@WebMvcTest({HomeController.class, ApplicationController.class})
 class HomeControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private ApplicationService applicationService;
 
     @Test
     void homePageLinksToAllThreeSections() throws Exception {
@@ -61,12 +67,5 @@ class HomeControllerTest {
                 mockMvc.perform(get(link)).andExpect(status().isOk());
             }
         }
-    }
-
-    @Test
-    void homePageDoesNotLinkToUnbuiltFeatures() throws Exception {
-        mockMvc.perform(get("/"))
-                .andExpect(content().string(not(containsString("/apply"))))
-                .andExpect(content().string(not(containsString("/applications"))));
     }
 }
