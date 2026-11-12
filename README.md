@@ -2,13 +2,13 @@
 
 ![CI](https://github.com/sanil04/SYSC-4806-Group-Project/actions/workflows/ci.yml/badge.svg)
 
-Contributors include:
-
-1) Qurb E Muhammad Syed
-2) Alexander Gardiner
-3) Sanil Srivastava
-4) Ahmed Al-Khazaali
-
+| Contributor | GitHub |
+|---|---|
+| Qurb E Muhammad Syed | [@SyedQem](https://github.com/SyedQem) |
+| Alexander Gardiner | [@asgardiner](https://github.com/asgardiner) |
+| Sanil Srivastava | [@sanil04](https://github.com/sanil04) |
+| Ahmed Al-Khazaali | [@ahmedalkhazaali](https://github.com/ahmedalkhazaali) |
+| Sanidhya | [@sanizzz](https://github.com/sanizzz) |
 
 SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 
@@ -21,50 +21,83 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 | **Production** | <https://sysc4806-gradadmissions-fxe8abasgfd9b6ea.francecentral-01.azurewebsites.net/> |
 | **Kanban** | [Projects tab](https://github.com/sanil04/SYSC-4806-Group-Project/projects) |
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
+| **Weekly scrums** | [Issues titled "Weekly scrum"](https://github.com/sanil04/SYSC-4806-Group-Project/issues?q=is%3Aissue+%22Weekly+scrum%22) |
 
-**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf + Bootstrap, Spring Data JPA, Bean Validation). H2 locally and in tests, managed PostgreSQL on Azure in production. Spring Security and Spring Mail come in Sprint 2. Deployed to Azure App Service by GitHub Actions.
+**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security and Spring Mail come in Sprint 2.
 
 ---
 
 ## Current status
 
-_Mirrors the Kanban. Updated at the end of each sprint._
+_Mirrors the Kanban. Last updated at the end of Sprint 1 (Milestone 1, Nov 12)._
+
+Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** There is no login yet; the home page links to the Applicant, Professor and Admin sections.
+
+### What you can do on the live site
+
+| Page | What it does |
+|---|---|
+| `/` | Home page with links to the three sections |
+| `/professor/profiles` | List of professors; open one to view it, then **Edit profile** to change name, email and research fields |
+| `/apply` | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
+| `/apply/confirmation/{id}` | Confirmation shown after submitting |
+| `/admin/applications` | Table of submitted applications, newest first; open one for the full details |
+
+Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
+
+### Sprint 1 issues
 
 | Issue | Item | Status |
 |---|---|---|
 | #1 | Spring Boot project with Maven | Done |
-| #2 | CI with GitHub Actions | In progress |
-| #3 | Deploy to Azure App Service | In progress |
-| #4 | Production database | In progress |
-| #5 | Branch protection + Kanban | In progress |
-| #6 | README skeleton | In review |
-| #7 | Domain entities | Backlog |
-| #10 | Professor profile | Backlog |
-| #11 | Application form | Backlog |
-| #12 | Admin application list | Backlog |
-| #13 | Home page and navigation | Backlog |
+| #2 | CI with GitHub Actions | Done |
+| #3 | Deploy to Azure App Service on every merge to `main` | Done |
+| #4 | Production PostgreSQL database and Spring profiles | Done |
+| #5 | Branch protection and Kanban | Done |
+| #6 | README skeleton | Done |
+| #7 | Domain entities and repositories | Done |
+| #8 | UML class diagram and DB schema in the README | Done |
+| #9 | Seed research fields, admin and professors | Done |
+| #10 | Professor profile: view and edit research fields | Done |
+| #11 | Applicant: submit an application | Done |
+| #12 | Admin: list and detail of submitted applications | Done |
+| #13 | Home page and navigation | Done |
+| #14 | End-to-end test: submit an application, then see it in the admin list | Done |
+| #24 | Seed an active admission cycle | Done |
+| #15 | Weekly scrum | Ongoing |
+| #16 | Prepare the Milestone 1 demo | In progress |
+
+**Tests:** 63, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14).
 
 ## Sprint plan
 
-### Sprint 1: Milestone 1, early prototype (demo Nov 12)
+### Sprint 1: Milestone 1, early prototype (Nov 12) — done
 
-Goal: one use case working end to end, deployed on Azure.
+Goal: one use case working end to end, deployed on Azure. Delivered as described in [Current status](#current-status), along with CI on every PR, a deploy on every merge to `main`, and a persistent PostgreSQL database in production.
 
-> A professor sets up their profile with research fields. An applicant fills in the application, picks that professor, and submits. The admin opens the applications list and sees it.
+### Sprint 2: Milestone 2, alpha (Nov 26)
 
-There's no login in Sprint 1. Users are seeded, and the home page has a role picker (Applicant / Professor / Admin).
+Goal: the full review loop for one application, behind a login. An applicant logs in, applies with documents, the admin screens and routes the application, and the professor evaluates it.
 
-Supporting work: the entities and seed data, CI on every PR, a deploy on every merge to `main`, unit tests per controller, and one end-to-end test (submit an application, then see it in the admin list).
+| Feature | Requirements (design doc) |
+|---|---|
+| Login and role-based access with Spring Security (applicant registration, seeded professors and admin) | FR-01, FR-02 |
+| Admin creates professor accounts | FR-03 |
+| Document upload and download (CV, diploma, grade audit; PDF up to 5 MB), visible only to the applicant, assigned professors and admins | FR-07 |
+| Save an application as a draft and submit it later | FR-08 |
+| Admin filters the application list by field, professor, status and date | FR-18 |
+| Admin routes an application to professors, or screens it out | FR-19, FR-20 |
+| Professor sees their assigned applications, opens one, and submits an assessment | FR-12, FR-13, FR-14 |
 
-### Sprint 2: Milestone 2, alpha (demo Nov 26)
+New models: `Document` and `Evaluation` (assignment plus assessment), added to the UML and schema below in the same PRs.
 
-_Finalized at the end of Sprint 1._ Candidates:
-- Login and role-based access with Spring Security
-- Document upload and download (CV, diploma, grade audit)
-- Admin screening (screen out or move to review) and routing to professors
-- Email notification to professors when applicants are routed to them
-- Professor assessment form
-- Submission and evaluation deadlines enforced
+Also in Sprint 2, from Sprint 1 reviews:
+- Stop duplicate submissions by the same applicant in the same cycle.
+- Make the seeder safe when the "Fall 2027" cycle exists but is inactive (it would currently fail on the unique cycle name at startup).
+- Require at least one research field on a professor profile.
+- Restrict the `production` GitHub environment, and its deploy secrets, to `main`.
+
+Planned for Sprint 3: email notifications to professors, enforced submission and evaluation deadlines, admin side-by-side view of assessments and final decision, and applicant status page.
 
 ---
 
@@ -174,7 +207,7 @@ stateDiagram-v2
 
 ## Database schema
 
-> **Status:** generated by Hibernate from the #7 entities (PostgreSQL dialect). The full DDL is in [`docs/schema.sql`](docs/schema.sql).
+> **Status:** generated by Hibernate from the current entities (PostgreSQL dialect); rechecked against the code on Nov 12. The full DDL is in [`docs/schema.sql`](docs/schema.sql). In production, Hibernate creates the same tables in Azure PostgreSQL from these entities (`ddl-auto=update`).
 
 ```mermaid
 erDiagram
@@ -260,39 +293,49 @@ java -jar target/gradadmissions-0.0.1-SNAPSHOT.jar    # http://localhost:8080
 
 Local runs use an in-memory H2 database, so there's nothing to set up. Data resets on every restart.
 
+## Deployment
+
+```
+pull request ──► CI: ./mvnw verify ──► 2 approvals ──► merge to main ──► CI build ──► deploy job ──► Azure App Service
+```
+
+- **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./mvnw -B verify` (compile, all tests, package) on every pull request and every push to `main`. The `main` ruleset requires the `build` check and 2 approving reviews before merging, and blocks force pushes.
+- **Deploy:** after a green build on `main`, the `deploy` job uploads the same JAR to Azure with `azure/webapps-deploy`, using the `production` GitHub environment. Every deploy is listed under **Deployments** on the repo page. A deploy can also be re-run from **Actions → CI → Run workflow**.
+- **App Service:** `sysc4806-gradadmissions`, Linux, Java 21 (Java SE), Basic B1 plan, France Central. App setting `SERVER_PORT=80`. Azure's own "Continuous deployment" is off: GitHub Actions does the deploys.
+
 ### Production database
 
-The `prod` profile uses PostgreSQL. The Azure account owner supplies these values in App Service.
+| | |
+|---|---|
+| Server | Azure Database for PostgreSQL Flexible Server `sysc4806-gradadmissions-db` (PostgreSQL 17, Burstable B1ms), same resource group and region as the App Service |
+| Database | `gradadmissions` |
+| Network | Public access limited to firewall rules: one per App Service outbound IPv4 address |
+| Connection | TLS with full certificate verification (`sslmode=verify-full`) |
+| Schema | Created and updated by Hibernate on startup (`ddl-auto=update`), so data survives restarts and redeploys |
+
+The `prod` Spring profile ([`application-prod.properties`](src/main/resources/application-prod.properties)) reads its connection from App Service app settings. Credentials are never committed.
 
 | App setting | Value |
 |---|---|
 | `SPRING_PROFILES_ACTIVE` | `prod` |
-| `DB_URL` | `jdbc:postgresql://<server>.postgres.database.azure.com:5432/gradadmissions` |
-| `DB_USERNAME` | The PostgreSQL login |
-| `DB_PASSWORD` | The password for that login |
+| `DB_URL` | `jdbc:postgresql://sysc4806-gradadmissions-db.postgres.database.azure.com:5432/gradadmissions` |
+| `DB_USERNAME` / `DB_PASSWORD` | The server's PostgreSQL login (stored only in App Service) |
 
-1. In Azure Portal, create an **Azure Database for PostgreSQL Flexible Server** in the app's resource group and region. Choose PostgreSQL authentication and keep the login and password for the settings above.
-2. On the PostgreSQL server, open **Databases** and add a database named `gradadmissions`. The login used by the app needs permission to create and update its tables.
-3. Open the existing **App Service > Properties** and copy all **Outbound IP Addresses**. On the PostgreSQL server's **Networking** page, add each address to its public-access firewall rules and save.
-4. After this code is merged into `main` and the GitHub Actions deployment succeeds, open **App Service > Settings > Environment variables > App settings**. Add the four settings above. Replace `<server>` with the PostgreSQL server name from its Overview page.
-5. Apply each setting, then apply the changes on the Environment variables page. Azure restarts the app with the `prod` profile. Credentials stay in App Service settings.
-6. Open the app's home page and check **Monitoring > Log stream** for a successful startup with the `prod` profile and a PostgreSQL connection. Query the database using the statements below, restart App Service, and confirm that the same records remain.
+Verified on Nov 12 (#4): the app starts on the `prod` profile and connects; the seeded rows are in `users` and `research_field`; an application submitted on the live site appears in the admin list; and the data is still there after restarting the App Service.
+
+**Inspecting the database:** add your IP under the server's **Networking → Firewall rules** (it changes between networks), then connect with SSL required, for example with IntelliJ's Database tool. Ask the Azure account owner for the credentials.
 
 ```sql
 SELECT id, email FROM users ORDER BY id;
 SELECT id, name FROM research_field ORDER BY id;
 ```
 
-Production connections verify the server's TLS certificate using Java's trusted certificates. Hibernate uses `update` so this prototype creates its tables and keeps existing rows across restarts. The data seeder reuses its existing sample records.
-
-The code is configured for these steps. Creating the Azure database and verifying the deployed connection complete the remaining issue #4 tasks.
-
-Azure documents the app settings and database firewall rules. [App settings](https://learn.microsoft.com/en-us/azure/app-service/configure-common?tabs=portal), [firewall rules](https://learn.microsoft.com/en-us/azure/postgresql/security/security-firewall-rules).
+**Rebuilding it from scratch:** create the Flexible Server and the `gradadmissions` database; add a firewall rule for each IP in the App Service's `possibleOutboundIpAddresses`; set the app settings above; apply, and check **Monitoring → Log stream** for `profile is active: "prod"` and `HikariPool-1 - Start completed`. See Azure's docs on [app settings](https://learn.microsoft.com/en-us/azure/app-service/configure-common?tabs=portal) and [firewall rules](https://learn.microsoft.com/en-us/azure/postgresql/security/security-firewall-rules).
 
 ## How we work
 
 1. Take an issue from **Backlog**, assign yourself, move it to **In Progress**.
-2. Branch from `main`, one branch per issue: `git checkout -b feature/<issue#>-short-name`
+2. Branch from `main`, one branch per issue, starting with the issue number: `git checkout -b 12-admin-list-<yourname>`
 3. Open a PR with `Closes #<issue>` and request **2 reviewers**.
 4. `main` is protected. Merging needs 2 approvals and a green CI run.
 5. The author merges their own PR. Each merge to `main` deploys to Azure, so every member deploys. Target: 2-3 deploys per week.
