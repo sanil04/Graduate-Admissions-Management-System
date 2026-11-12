@@ -18,40 +18,37 @@ import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 
 /**
- * End-to-end:- submit an application proposal thru the applicant form, then confirm
+ * End to end: submit an application through the applicant form, then confirm
  * it shows up on the admin list (issue 14).
+ * The class name must end in "Test": Maven does not run classes ending in "IT".
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class SubmitApplicationToAdminIT {
+class SubmitApplicationToAdminTest {
 
 	@Autowired private MockMvc mockMvc;
-
 	@Autowired private ResearchFieldRepository fields;
-
 	@Autowired private ProfessorRepository professors;
-    
 
 	@Test
 	void submittedApplicationAppearsInAdminList() throws Exception {
 		Long fieldId = fields.findByName("AI").orElseThrow().getId();
 		Professor professor = professors.findByResearchFieldsIdOrderByNameAsc(fieldId).get(0);
 
+		// A name no other test submits, so the admin list check can only match this application.
 		mockMvc.perform(post("/apply")
-						.param("personalInfo.firstName", "Ada")
-						.param("personalInfo.lastName", "Lovelace")
-                        .param("personalInfo.citizenship", "Canada")
-
-						.param("personalInfo.email", "ada.e2e@example.com")
+						.param("personalInfo.firstName", "Grace")
+						.param("personalInfo.lastName", "Hopper")
+						.param("personalInfo.email", "grace.e2e@example.com")
 						.param("personalInfo.phoneNumber", "613-555-0100")
-						
+						.param("personalInfo.citizenship", "Canada")
 						.param("desiredFieldId", fieldId.toString())
 						.param("professorIds", professor.getId().toString()))
 				.andExpect(redirectedUrlPattern("/apply/confirmation/*"));
 
 		mockMvc.perform(get("/admin/applications"))
 				.andExpect(status().isOk())
-				.andExpect(content().string(containsString("Ada Lovelace")))
+				.andExpect(content().string(containsString("Grace Hopper")))
 				.andExpect(content().string(containsString("AI")))
 				.andExpect(content().string(containsString(professor.getName())))
 				.andExpect(content().string(containsString("SUBMITTED")));
