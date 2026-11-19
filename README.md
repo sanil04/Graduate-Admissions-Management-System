@@ -23,7 +23,7 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
 | **Weekly scrums** | [Issues titled "Weekly scrum"](https://github.com/sanil04/SYSC-4806-Group-Project/issues?q=is%3Aissue+%22Weekly+scrum%22) |
 
-**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security and Spring Mail come in Sprint 2.
+**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security (form login, BCrypt, role-based URL rules). Spring Mail comes later in Sprint 2.
 
 ---
 
@@ -31,19 +31,32 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 
 _Mirrors the Kanban. Last updated at the end of Sprint 1 (Milestone 1, Nov 12)._
 
-Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** There is no login yet; the home page links to the Applicant, Professor and Admin sections.
+Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** Since #33, every section needs a login (see [Demo logins](#demo-logins)), and each role sees only its own section.
 
 ### What you can do on the live site
 
-| Page | What it does |
-|---|---|
-| `/` | Home page with links to the three sections |
-| `/professor/profiles` | List of professors; open one to view it, then **Edit profile** to change name, email and research fields |
-| `/apply` | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
-| `/apply/confirmation/{id}` | Confirmation shown after submitting |
-| `/admin/applications` | Table of submitted applications, newest first; open one for the full details |
+| Page | Who | What it does |
+|---|---|---|
+| `/` | Everyone | Home page: a **Log in** card, or once logged in, a link to your section |
+| `/login` | Everyone | Log in with email and password. The nav shows who is logged in and a **Log out** button |
+| `/professor/profiles` | Professor | List of professors; open one to view it. On your own profile, **Edit profile** changes your name, email and research fields |
+| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting |
+| `/admin/applications` | Admin | Table of submitted applications, newest first; open one for the full details |
 
-Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
+Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; a demo applicant; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
+
+**Access rules** ([`SecurityConfig`](src/main/java/com/sysc4806/gradadmissions/config/SecurityConfig.java)):
+
+| URL | Who can open it |
+|---|---|
+| `/`, `/login`, `/register`, `/css/**`, `/error` | Everyone |
+| `/admin/**` | Admins |
+| `/professor/**` | Professors. A professor can view every profile but edit only their own. |
+| `/applicant`, `/apply/**` | Applicants |
+| Anything else | Any logged-in user |
+
+Visitors who aren't logged in are sent to `/login`, then back to the page they asked for. A logged-in user who opens another role's page gets a 403 "Access denied" page. Every POST needs the CSRF token, which Thymeleaf adds to `th:action` forms automatically. In code, `CurrentUserService` returns the logged-in `Admin`, `Professor` or `Applicant`.
 
 ### Sprint 1 issues
 
@@ -67,7 +80,13 @@ Seeded data (created on startup if missing): research fields AI, Software Engine
 | #15 | Weekly scrum | Ongoing |
 | #16 | Prepare the Milestone 1 demo | In progress |
 
-**Tests:** 63, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14).
+### Sprint 2 issues (in progress)
+
+| Issue | Item | Status |
+|---|---|---|
+| #33 | Login and role-based access with Spring Security | In review |
+
+**Tests:** 90, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
 
 ## Sprint plan
 

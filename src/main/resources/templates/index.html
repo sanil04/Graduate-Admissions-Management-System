@@ -5,21 +5,34 @@
 <header th:replace="~{fragments/layout :: header('home')}"></header>
 <main class="container">
     <h1>Graduate Admissions Management System</h1>
-    <p class="lead">Choose the section that matches your role.</p>
-    <div class="cards">
-        <a class="card" th:href="@{/applicant}">
-            <h2>Applicant</h2>
-            <p>Apply to the graduate program and choose the professors you would like to work with.</p>
-        </a>
-        <a class="card" th:href="@{/professor}">
-            <h2>Professor</h2>
-            <p>Manage your profile and research fields.</p>
-        </a>
-        <a class="card" th:href="@{/admin}">
-            <h2>Admin</h2>
-            <p>Review submitted applications.</p>
-        </a>
-    </div>
+
+    <th:block th:if="${loggedInUser == null}">
+        <p class="lead">Applicants, professors and admins log in with their email and password.</p>
+        <div class="cards">
+            <a class="card" th:href="@{/login}">
+                <h2>Log in</h2>
+                <p>Apply to the graduate program, manage your professor profile, or review applications.</p>
+            </a>
+        </div>
+    </th:block>
+
+    <th:block th:if="${loggedInUser != null}">
+        <p class="lead">Welcome, <span th:text="${loggedInUser.name}">Alice Chen</span>.</p>
+        <div class="cards">
+            <a class="card" th:if="${loggedInUser.role == 'APPLICANT'}" th:href="@{/applicant}">
+                <h2>Applicant</h2>
+                <p>Apply to the graduate program and choose the professors you would like to work with.</p>
+            </a>
+            <a class="card" th:if="${loggedInUser.role == 'PROFESSOR'}" th:href="@{/professor}">
+                <h2>Professor</h2>
+                <p>Manage your profile and research fields.</p>
+            </a>
+            <a class="card" th:if="${loggedInUser.role == 'ADMIN'}" th:href="@{/admin}">
+                <h2>Admin</h2>
+                <p>Review submitted applications.</p>
+            </a>
+        </div>
+    </th:block>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>

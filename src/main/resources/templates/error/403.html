@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Access denied')}"><title>Access denied</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('none')}"></header>
+<main class="container">
+    <h1>Access denied</h1>
+    <p class="lead">Your account can't open this page.</p>
+    <p>Pages are limited to the role they belong to: the admin section to admins, the professor section to professors, and the applicant section to applicants.</p>
+    <p><a th:href="@{/}">&larr; Back to home</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
