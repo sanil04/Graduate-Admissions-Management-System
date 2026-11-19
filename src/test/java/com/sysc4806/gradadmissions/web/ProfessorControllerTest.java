@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -24,16 +25,21 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
 
 @WebMvcTest(ProfessorController.class)
+@Import(SecurityConfig.class)
+@WithMockUser(roles = "PROFESSOR")
 class ProfessorControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -81,7 +87,7 @@ class ProfessorControllerTest {
     void unknownProfessorIsNotFound() throws Exception {
         mockMvc.perform(get("/professor/99")).andExpect(status().isNotFound());
         mockMvc.perform(get("/professor/99/edit")).andExpect(status().isNotFound());
-        mockMvc.perform(post("/professor/99/edit")).andExpect(status().isNotFound());
+        mockMvc.perform(post("/professor/99/edit").with(csrf())).andExpect(status().isNotFound());
     }
 
     @Test
@@ -96,7 +102,7 @@ class ProfessorControllerTest {
 
     @Test
     void validUpdateIsSavedAndRedirectsToTheProfile() throws Exception {
-        mockMvc.perform(post("/professor/1/edit")
+        mockMvc.perform(post("/professor/1/edit").with(csrf())
                         .param("name", "Alan Turing")
                         .param("email", "alan@carleton.ca")
                         .param("researchFieldIds", "3", "4"))
@@ -111,7 +117,7 @@ class ProfessorControllerTest {
 
     @Test
     void validationErrorsAreShownOnTheFormWithoutSaving() throws Exception {
-        mockMvc.perform(post("/professor/1/edit").param("name", "").param("email", "not-an-email"))
+        mockMvc.perform(post("/professor/1/edit").with(csrf()).param("name", "").param("email", "not-an-email"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("professor/form"))
                 .andExpect(model().attributeHasFieldErrors("form", "name", "email"))
@@ -126,7 +132,7 @@ class ProfessorControllerTest {
         when(service.update(eq(1L), any()))
                 .thenThrow(new IllegalArgumentException("That email address belongs to another account"));
 
-        mockMvc.perform(post("/professor/1/edit").param("name", "Alan Turing").param("email", "taken@carleton.ca"))
+        mockMvc.perform(post("/professor/1/edit").with(csrf()).param("name", "Alan Turing").param("email", "taken@carleton.ca"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("professor/form"))
                 .andExpect(content().string(containsString("That email address belongs to another account")));

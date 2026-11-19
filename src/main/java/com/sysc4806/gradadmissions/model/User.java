@@ -34,6 +34,15 @@ public abstract class User {
 	@Column(nullable = false, unique = true)
 	private String email;
 
+	/**
+	 * BCrypt hash of the password; never the plain text. Nullable on purpose: production uses
+	 * {@code ddl-auto=update}, which cannot add a NOT NULL column to a table that already has rows.
+	 * A user without a password (e.g. an applicant created by the application form before
+	 * registration existed) simply cannot log in.
+	 */
+	@Column(name = "password_hash")
+	private String passwordHash;
+
 	protected User(String name, String email) {
 		this.name = name;
 		this.email = email;

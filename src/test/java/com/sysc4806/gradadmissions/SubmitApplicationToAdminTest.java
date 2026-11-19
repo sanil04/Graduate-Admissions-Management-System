@@ -1,6 +1,8 @@
 package com.sysc4806.gradadmissions;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -13,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.sysc4806.gradadmissions.config.DataSeeder;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
@@ -37,6 +40,8 @@ class SubmitApplicationToAdminTest {
 
 		// A name no other test submits, so the admin list check can only match this application.
 		mockMvc.perform(post("/apply")
+						.with(user(DataSeeder.APPLICANT_EMAIL).roles("APPLICANT"))
+						.with(csrf())
 						.param("personalInfo.firstName", "Grace")
 						.param("personalInfo.lastName", "Hopper")
 						.param("personalInfo.email", "grace.e2e@example.com")
@@ -46,7 +51,7 @@ class SubmitApplicationToAdminTest {
 						.param("professorIds", professor.getId().toString()))
 				.andExpect(redirectedUrlPattern("/apply/confirmation/*"));
 
-		mockMvc.perform(get("/admin/applications"))
+		mockMvc.perform(get("/admin/applications").with(user(DataSeeder.ADMIN_EMAIL).roles("ADMIN")))
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString("Grace Hopper")))
 				.andExpect(content().string(containsString("AI")))

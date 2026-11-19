@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -23,15 +24,20 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.sysc4806.gradadmissions.model.*;
+import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 
 @WebMvcTest(ApplicationController.class)
+@Import(SecurityConfig.class)
+@WithMockUser(roles = "APPLICANT")
 class ApplicationControllerTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 7, 12, 0);
@@ -52,7 +58,7 @@ class ApplicationControllerTest {
     }
 
     private MockHttpServletRequestBuilder validSubmission() {
-        return post("/apply")
+        return post("/apply").with(csrf())
                 .param("personalInfo.firstName", "Ada")
                 .param("personalInfo.lastName", "Lovelace")
                 .param("personalInfo.email", "ada@example.com")
@@ -96,7 +102,7 @@ class ApplicationControllerTest {
 
     @Test
     void invalidSubmissionRedisplaysTheFormWithoutCallingTheService() throws Exception {
-        mockMvc.perform(post("/apply")
+        mockMvc.perform(post("/apply").with(csrf())
                         .param("personalInfo.firstName", "")
                         .param("personalInfo.lastName", "")
                         .param("personalInfo.email", "not-an-email"))
