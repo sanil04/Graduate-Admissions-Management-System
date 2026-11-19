@@ -5,7 +5,7 @@
 <header th:replace="~{fragments/layout :: header('professor')}"></header>
 <main class="container">
     <h1>Professor profiles</h1>
-    <p class="lead">Choose your profile to view or edit it.</p>
+    <p class="lead">Open any profile to view it. You can edit your own.</p>
     <p class="notice" th:if="${#lists.isEmpty(professors)}">There are no professors yet.</p>
     <ul>
         <li th:each="professor : ${professors}">
