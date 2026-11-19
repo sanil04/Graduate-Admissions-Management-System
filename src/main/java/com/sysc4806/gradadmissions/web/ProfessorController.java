@@ -2,6 +2,7 @@ package com.sysc4806.gradadmissions.web;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -14,18 +15,21 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
+import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
 
-/** Professor profiles: list, view and edit. */
+/** Professor profiles: any professor can list and view them, but only edit their own. */
 @Controller
 @RequestMapping("/professor")
 public class ProfessorController {
 
     private final ProfessorService service;
+    private final CurrentUserService currentUsers;
 
-    public ProfessorController(ProfessorService service) {
+    public ProfessorController(ProfessorService service, CurrentUserService currentUsers) {
         this.service = service;
+        this.currentUsers = currentUsers;
     }
 
     @GetMapping("/profiles")
@@ -37,12 +41,14 @@ public class ProfessorController {
     @GetMapping("/{id}")
     public String viewProfile(@PathVariable Long id, Model model) {
         model.addAttribute("professor", professor(id));
+        model.addAttribute("canEdit", isLoggedInProfessor(id));
         return "professor/profile";
     }
 
     @GetMapping("/{id}/edit")
     public String showEditForm(@PathVariable Long id, Model model) {
         Professor professor = professor(id);
+        requireLoggedInProfessor(id);
         ProfessorFormDto form = new ProfessorFormDto();
         form.setName(professor.getName());
         form.setEmail(professor.getEmail());
@@ -55,6 +61,7 @@ public class ProfessorController {
     public String updateProfile(@PathVariable Long id, @Valid @ModelAttribute("form") ProfessorFormDto form,
                                 BindingResult result, Model model) {
         professor(id);
+        requireLoggedInProfessor(id);
         if (!result.hasErrors()) {
             try {
                 service.update(id, form);
@@ -70,6 +77,17 @@ public class ProfessorController {
 
     private Professor professor(Long id) {
         return service.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private boolean isLoggedInProfessor(Long id) {
+        return currentUsers.currentProfessor().getId().equals(id);
+    }
+
+    /** 403 when a professor tries to edit someone else's profile. */
+    private void requireLoggedInProfessor(Long id) {
+        if (!isLoggedInProfessor(id)) {
+            throw new AccessDeniedException("You can only edit your own profile");
+        }
     }
 
     private String formView(Long id, Model model) {

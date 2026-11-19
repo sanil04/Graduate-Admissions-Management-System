@@ -10,8 +10,10 @@
       <footer th:replace="~{fragments/layout :: footer}"></footer>
     </body>
 
-  The header argument is the active section: 'home', 'applicant', 'professor' or 'admin'.
+  The header argument is the active section: 'home', 'login', 'applicant', 'professor' or 'admin'.
   Add new nav links ONLY in the header fragment below, and only once the page exists.
+  The nav shows only the section of the logged-in user's role (loggedInUser comes from
+  LoggedInUserAdvice), so no one sees a link that would answer 403.
 -->
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
@@ -27,12 +29,21 @@
             <ul class="nav">
                 <li><a th:href="@{/}" th:classappend="${active == 'home'} ? 'active'"
                        th:attr="aria-current=${active == 'home'} ? 'page'">Home</a></li>
-                <li><a th:href="@{/applicant}" th:classappend="${active == 'applicant'} ? 'active'"
+                <li th:if="${loggedInUser?.role == 'APPLICANT'}"><a th:href="@{/applicant}" th:classappend="${active == 'applicant'} ? 'active'"
                        th:attr="aria-current=${active == 'applicant'} ? 'page'">Applicant</a></li>
-                <li><a th:href="@{/professor}" th:classappend="${active == 'professor'} ? 'active'"
+                <li th:if="${loggedInUser?.role == 'PROFESSOR'}"><a th:href="@{/professor}" th:classappend="${active == 'professor'} ? 'active'"
                        th:attr="aria-current=${active == 'professor'} ? 'page'">Professor</a></li>
-                <li><a th:href="@{/admin}" th:classappend="${active == 'admin'} ? 'active'"
+                <li th:if="${loggedInUser?.role == 'ADMIN'}"><a th:href="@{/admin}" th:classappend="${active == 'admin'} ? 'active'"
                        th:attr="aria-current=${active == 'admin'} ? 'page'">Admin</a></li>
+                <li th:if="${loggedInUser == null}"><a th:href="@{/login}" th:classappend="${active == 'login'} ? 'active'"
+                       th:attr="aria-current=${active == 'login'} ? 'page'">Log in</a></li>
+                <li th:if="${loggedInUser != null}" class="account">
+                    <span class="account-name" th:text="${loggedInUser.roleLabel != null} ? |${loggedInUser.name} (${loggedInUser.roleLabel})| : ${loggedInUser.name}">Alice Chen (Professor)</span>
+                    <!-- Logout must be a POST with the CSRF token, which th:action adds. -->
+                    <form th:action="@{/logout}" method="post" class="logout-form">
+                        <button type="submit" class="logout-button">Log out</button>
+                    </form>
+                </li>
             </ul>
         </nav>
     </div>

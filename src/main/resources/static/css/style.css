@@ -29,6 +29,19 @@ a { color: var(--primary); }
 .nav a { display: block; color: #fff; text-decoration: none; padding: .9rem .8rem; border-bottom: 3px solid transparent; }
 .nav a:hover { background: var(--primary-dark); }
 .nav a.active { border-bottom-color: #fff; font-weight: 600; }
+.account { display: flex; align-items: center; gap: .6rem; padding-left: .8rem; }
+.account-name { font-size: .95rem; }
+.logout-form { margin: 0; }
+.logout-button {
+    font: inherit;
+    color: #fff;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: 4px;
+    padding: .3rem .7rem;
+    cursor: pointer;
+}
+.logout-button:hover, .logout-button:focus { background: var(--primary-dark); }
 
 .lead { color: var(--muted); font-size: 1.1rem; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
