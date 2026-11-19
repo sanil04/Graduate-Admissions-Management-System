@@ -16,14 +16,19 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.sysc4806.gradadmissions.model.*;
+import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
 
 @WebMvcTest(AdminController.class)
+@Import(SecurityConfig.class)
+@WithMockUser(roles = "ADMIN")
 class AdminControllerTest {
 
     private static final LocalDateTime NOV_7 = LocalDateTime.of(2026, 11, 7, 12, 0);
