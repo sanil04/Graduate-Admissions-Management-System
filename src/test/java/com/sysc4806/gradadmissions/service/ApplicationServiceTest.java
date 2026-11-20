@@ -181,4 +181,44 @@ class ApplicationServiceTest {
         assertThat(service.findApplication(id)).isPresent();
         assertThat(service.findApplication(999_999L)).isEmpty();
     }
+
+    @Test
+    void saveDraftDoesNotRequireFieldOrProfessors() {
+        Application draft = service.saveDraft(info, null, List.of());
+
+        assertThat(draft.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+        assertThat(draft.getDesiredField()).isNull();
+        assertThat(draft.getPreferredProfessors()).isEmpty();
+        assertThat(draft.getSubmittedAt()).isNull();
+    }
+
+    @Test
+    void saveDraftThenSubmitReusesTheSameApplication() {
+        Application draft = service.saveDraft(info, ml.getId(), List.of(alice.getId()));
+
+        Application submitted = service.submit(info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThat(submitted.getId()).isEqualTo(draft.getId());
+        assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(applications.count()).isEqualTo(1);
+    }
+
+    @Test
+    void secondSubmitForTheSameCycleIsRejected() {
+        service.submit(info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(alice.getId()), NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already submitted");
+    }
+
+    @Test
+    void findActiveCycleApplicationForEmailFindsTheDraft() {
+        service.saveDraft(info, null, List.of());
+
+        assertThat(service.findActiveCycleApplicationForEmail("ada@example.com"))
+                .get()
+                .extracting(Application::getStatus)
+                .isEqualTo(ApplicationStatus.DRAFT);
+    }
 }
