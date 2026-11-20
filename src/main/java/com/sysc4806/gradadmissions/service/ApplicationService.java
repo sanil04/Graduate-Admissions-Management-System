@@ -139,6 +139,20 @@ public class ApplicationService {
         application.submit(now);
     return applications.save(application);
     }
+    
+/** The applicant's application in the active cycle, if any. */
+    @Transactional(readOnly = true)
+    public Optional<Application> findActiveCycleApplicationForEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<User> user = users.findByEmail(email.trim());
+        if (user.isEmpty() || !(user.get() instanceof Applicant applicant)) {
+            return Optional.empty();
+        }
+        return cycles.findByActiveTrue()
+                .flatMap(cycle -> applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId()));
+    }
 
     /** Emails are unique across all roles, so an existing applicant is reused. */
     private Applicant findOrCreateApplicant(PersonalInfo info) {

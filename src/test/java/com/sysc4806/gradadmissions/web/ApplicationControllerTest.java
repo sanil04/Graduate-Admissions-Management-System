@@ -161,4 +161,55 @@ class ApplicationControllerTest {
         mockMvc.perform(get("/apply/confirmation/99"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void saveDraftCallsTheServiceAndShowsANotice() throws Exception {
+        when(service.saveDraft(any(PersonalInfo.class), any(), any()))
+                .thenReturn(new Application(new Applicant("Ada Lovelace", "ada@example.com"), null,
+                        new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null)));
+        when(service.researchFields()).thenReturn(List.of());
+
+        mockMvc.perform(post("/apply/draft").with(csrf())
+                        .param("personalInfo.firstName", "Ada")
+                        .param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.email", "ada@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("Draft saved")))
+                .andExpect(model().attribute("draftSaved", true));
+
+        verify(service).saveDraft(any(PersonalInfo.class), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any());
+        }
+
+        @Test
+        void showFormPrefillsAnExistingDraftByEmail() throws Exception {
+        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
+        Application draft = new Application(new Applicant("Ada Lovelace", "ada@example.com"), cycle,
+                new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
+        ResearchField ml = field(1L, "Machine Learning");
+        draft.setDesiredField(ml);
+        draft.addPreferredProfessor(professor(7L, "Alice Chen"));
+        when(service.findActiveCycleApplicationForEmail("ada@example.com")).thenReturn(Optional.of(draft));
+        when(service.researchFields()).thenReturn(List.of(ml));
+        when(service.professorsForField(1L)).thenReturn(List.of(professor(7L, "Alice Chen")));
+
+        mockMvc.perform(get("/apply").param("email", "ada@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("ada@example.com")))
+                .andExpect(content().string(containsString("Alice Chen")));
+        }
+
+        @Test
+        void duplicateSubmissionMessageIsShownOnTheForm() throws Exception {
+        when(service.submit(any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException(
+                        "You already submitted an application for this admission cycle"));
+
+        mockMvc.perform(validSubmission())
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("already submitted")));
+        }
 }
