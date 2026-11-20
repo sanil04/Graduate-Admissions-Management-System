@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('New professor')}"><title>New professor</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('admin')}"></header>
+<main class="container">
+    <h1>Create professor</h1>
+    <p class="lead">Add a professor account with a temporary password.</p>
+
+    <form th:action="@{/admin/professors/new}" th:object="${form}" method="post">
+        <div class="notice" th:if="${#fields.hasGlobalErrors()}">
+            <p th:each="error : ${#fields.globalErrors()}" th:text="${error}">Something went wrong.</p>
+        </div>
+
+        <p>
+            <label for="name">Name</label><br>
+            <input id="name" type="text" th:field="*{name}">
+            <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Error</span>
+        </p>
+        <p>
+            <label for="email">Email</label><br>
+            <input id="email" type="email" th:field="*{email}">
+            <span th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Error</span>
+        </p>
+        <p>
+            <label for="temporaryPassword">Temporary password</label><br>
+            <input id="temporaryPassword" type="password" th:field="*{temporaryPassword}">
+            <span th:if="${#fields.hasErrors('temporaryPassword')}" th:errors="*{temporaryPassword}">Error</span>
+        </p>
+        <p>
+            <label for="researchFieldIds">Research fields</label><br>
+            <select id="researchFieldIds" th:field="*{researchFieldIds}" multiple size="6">
+                <option th:each="field : ${allResearchFields}" th:value="${field.id}" th:text="${field.name}">Field</option>
+            </select><br>
+            <small>Choose at least one. Hold Ctrl (Cmd on Mac) to select more than one.</small>
+            <span th:if="${#fields.hasErrors('researchFieldIds')}" th:errors="*{researchFieldIds}">Error</span>
+        </p>
+        <p><button type="submit">Create professor</button></p>
+    </form>
+    <p><a th:href="@{/admin}">&larr; Back to admin page</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
