@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // ApplicationController and AdminController are included so the link check can follow the
 // section pages' links to /apply and /admin/applications.
 // ProfessorController is included for the Professor page's link to /professor/profiles.
-@WebMvcTest({HomeController.class, ApplicationController.class, AdminController.class, ProfessorController.class})
+@WebMvcTest({HomeController.class, ApplicationController.class, AdminController.class, ProfessorController.class, AdminProfessorController.class})
 @Import(SecurityConfig.class)
 @WithMockUser(roles = {"ADMIN", "PROFESSOR", "APPLICANT"})
 class HomeControllerTest {

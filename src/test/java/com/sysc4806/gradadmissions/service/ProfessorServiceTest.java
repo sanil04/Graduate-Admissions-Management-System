@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.sysc4806.gradadmissions.model.Admin;
 import com.sysc4806.gradadmissions.model.Professor;
@@ -24,6 +26,7 @@ import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
 import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
+import com.sysc4806.gradadmissions.web.dto.AdminProfessorFormDto;
 
 @ExtendWith(MockitoExtension.class)
 class ProfessorServiceTest {
@@ -31,6 +34,7 @@ class ProfessorServiceTest {
     @Mock private ProfessorRepository professorRepository;
     @Mock private ResearchFieldRepository researchFieldRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
     @InjectMocks private ProfessorService professorService;
 
     private Professor smith;
@@ -91,5 +95,43 @@ class ProfessorServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("That email address belongs to another account");
         verify(professorRepository, never()).save(smith);
+    }
+
+    @Test
+    void createSavesAProfessorWithAnEncodedPassword() {
+        AdminProfessorFormDto createForm = new AdminProfessorFormDto();
+        createForm.setName("Dr. New");
+        createForm.setEmail("new@carleton.ca");
+        createForm.setTemporaryPassword("temp123");
+        createForm.setResearchFieldIds(Set.of(4L));
+        ResearchField networks = new ResearchField("Networks");
+
+        when(userRepository.findByEmail("new@carleton.ca")).thenReturn(Optional.empty());
+        when(researchFieldRepository.findAllById(Set.of(4L))).thenReturn(List.of(networks));
+        when(passwordEncoder.encode("temp123")).thenReturn("encoded-hash");
+        when(professorRepository.save(any(Professor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Professor created = professorService.create(createForm);
+
+        assertThat(created.getName()).isEqualTo("Dr. New");
+        assertThat(created.getEmail()).isEqualTo("new@carleton.ca");
+        assertThat(created.getPasswordHash()).isEqualTo("encoded-hash");
+        assertThat(created.getResearchFields()).containsExactly(networks);
+        verify(professorRepository).save(created);
+    }
+
+    @Test
+    void createRejectsADuplicateEmail() {
+        AdminProfessorFormDto createForm = new AdminProfessorFormDto();
+        createForm.setName("Dr. New");
+        createForm.setEmail("smith@carleton.ca");
+        createForm.setTemporaryPassword("temp123");
+        createForm.setResearchFieldIds(Set.of(4L));
+        when(userRepository.findByEmail("smith@carleton.ca")).thenReturn(Optional.of(smith));
+
+        assertThatThrownBy(() -> professorService.create(createForm))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("That email address belongs to another account");
+        verify(professorRepository, never()).save(any());
     }
 }
