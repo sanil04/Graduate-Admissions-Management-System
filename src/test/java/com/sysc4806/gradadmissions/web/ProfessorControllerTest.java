@@ -129,7 +129,7 @@ class ProfessorControllerTest {
 
     @Test
     void submittingWithNoResearchFieldsShowsAnErrorAndDoesNotSave() throws Exception {
-        mockMvc.perform(post("/professor/1/edit")
+        mockMvc.perform(post("/professor/1/edit").with(csrf())
                         .param("name", "Alan Turing")
                         .param("email", "alan@carleton.ca"))
                 .andExpect(status().isOk())
@@ -144,7 +144,7 @@ class ProfessorControllerTest {
     void aServiceSideNoFieldsRejectionIsShownOnTheForm() throws Exception {
         when(service.update(eq(1L), any())).thenThrow(new ProfessorService.NoResearchFieldsException());
 
-        mockMvc.perform(post("/professor/1/edit")
+        mockMvc.perform(post("/professor/1/edit").with(csrf())
                         .param("name", "Alan Turing")
                         .param("email", "alan@carleton.ca")
                         .param("researchFieldIds", "99"))
