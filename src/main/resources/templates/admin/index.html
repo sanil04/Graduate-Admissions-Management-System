@@ -6,8 +6,10 @@
 <main class="container">
     <h1>Admin</h1>
     <p class="lead">Review submitted applications.</p>
+    <p class="notice notice-success" role="status" th:if="${message}" th:text="${message}">Created professor.</p>
     <!-- Add links to this section's pages here once they are built. -->
     <p><a th:href="@{/admin/applications}">View submitted applications</a></p>
+    <p><a th:href="@{/admin/professors/new}">Create professor account</a></p>
     <p><a th:href="@{/}">&larr; Back to home</a></p>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
