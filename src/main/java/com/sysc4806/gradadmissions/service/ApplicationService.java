@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
+
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
+import com.sysc4806.gradadmissions.model.ApplicationStatus;
 
 /**
  * Applicant-facing use cases. Rule violations are reported as
@@ -64,6 +66,45 @@ public class ApplicationService {
         return applications.findById(id);
     }
 
+    // Saves a draft application for the active cycle, fields and professors are optional
+    @Transactional
+    public Application saveDraft(PersonalInfo personalInfo, Long fieldId, List<Long> professorIds) {
+        AdmissionCycle cycle = cycles.findByActiveTrue()
+                .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
+        Applicant applicant = findOrCreateApplicant(personalInfo);
+        Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+                .orElseGet(() -> new Application(applicant, cycle, personalInfo));
+        if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "You already submitted an application for this admission cycle");
+        }
+        application.setPersonalInfo(personalInfo);
+        ResearchField field = null;
+        if (fieldId != null) {
+            field = fields.findById(fieldId)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
+        } else if (professorIds != null && !professorIds.isEmpty()) {
+            throw new IllegalArgumentException("Choose a research field before selecting professors");
+        }
+        application.setDesiredField(field);
+        for (Professor previous : List.copyOf(application.getPreferredProfessors())) {
+            application.removePreferredProfessor(previous);
+        }
+        if (field != null) {
+            List<Long> ids = professorIds == null ? List.of() : professorIds;
+            for (Long professorId : new LinkedHashSet<>(ids)) {
+                Professor professor = professors.findById(professorId)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown professor"));
+                if (!professor.getResearchFields().contains(field)) {
+                    throw new IllegalArgumentException(
+                            professor.getName() + " does not work in " + field.getName());
+                }
+                application.addPreferredProfessor(professor);
+            }
+        }
+            return applications.save(application);
+    }
+
     /** Creates the application in the active cycle and submits it at {@code now}. */
     @Transactional
     public Application submit(PersonalInfo personalInfo, Long fieldId, List<Long> professorIds,
@@ -73,8 +114,18 @@ public class ApplicationService {
         ResearchField field = fields.findById(fieldId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
 
-        Application application = new Application(findOrCreateApplicant(personalInfo), cycle, personalInfo);
+        Applicant applicant = findOrCreateApplicant(personalInfo);
+        Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+                .orElseGet(() -> new Application(applicant, cycle, personalInfo));
+        if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "You've already submitted an application for this admission cycle");
+        }
+        application.setPersonalInfo(personalInfo);
         application.setDesiredField(field);
+        for (Professor previous : List.copyOf(application.getPreferredProfessors())) {
+            application.removePreferredProfessor(previous);
+        }
         List<Long> ids = professorIds == null ? List.of() : professorIds;
         for (Long professorId : new LinkedHashSet<>(ids)) {
             Professor professor = professors.findById(professorId)
@@ -86,7 +137,7 @@ public class ApplicationService {
             application.addPreferredProfessor(professor);
         }
         application.submit(now);
-        return applications.save(application);
+    return applications.save(application);
     }
 
     /** Emails are unique across all roles, so an existing applicant is reused. */
