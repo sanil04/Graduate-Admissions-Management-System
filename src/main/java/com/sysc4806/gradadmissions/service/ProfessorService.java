@@ -43,19 +43,41 @@ public class ProfessorService {
         return fields.findAll(Sort.by("name"));
     }
 
-    /** Replaces the professor's name, email and research fields with the form's values. */
+    /** Message shown when a profile would be left without any research field. */
+    public static final String NO_RESEARCH_FIELDS_MESSAGE = "Select at least one research field";
+
+    /** Thrown when an update would leave a professor with no research fields. */
+    public static class NoResearchFieldsException extends IllegalArgumentException {
+        public NoResearchFieldsException() {
+            super(NO_RESEARCH_FIELDS_MESSAGE);
+        }
+    }
+
+    /**
+     * Replaces the professor's name, email and research fields with the form's values.
+     *
+     * @throws NoResearchFieldsException if no (existing) research field is selected
+     * @throws IllegalArgumentException if the professor is unknown or the email belongs to another account
+     */
     @Transactional
     public Professor update(Long id, ProfessorFormDto form) {
         Professor professor = professors.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown professor"));
+        if (form.getResearchFieldIds() == null || form.getResearchFieldIds().isEmpty()) {
+            throw new NoResearchFieldsException();
+        }
         // Emails are unique across all roles.
         if (users.findByEmail(form.getEmail()).filter(user -> !user.getId().equals(id)).isPresent()) {
             throw new IllegalArgumentException("That email address belongs to another account");
         }
+        List<ResearchField> selected = fields.findAllById(form.getResearchFieldIds());
+        if (selected.isEmpty()) {
+            throw new NoResearchFieldsException();
+        }
         professor.setName(form.getName());
         professor.setEmail(form.getEmail());
         professor.getResearchFields().clear();
-        professor.getResearchFields().addAll(fields.findAllById(form.getResearchFieldIds()));
+        professor.getResearchFields().addAll(selected);
         return professors.save(professor);
     }
 }

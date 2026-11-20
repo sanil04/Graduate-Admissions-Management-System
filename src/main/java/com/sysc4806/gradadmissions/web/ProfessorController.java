@@ -59,6 +59,8 @@ public class ProfessorController {
             try {
                 service.update(id, form);
                 return "redirect:/professor/" + id;
+            } catch (ProfessorService.NoResearchFieldsException e) {
+                result.rejectValue("researchFieldIds", "researchFieldIds.empty", e.getMessage());
             } catch (IllegalArgumentException e) {
                 result.rejectValue("email", "email.taken", e.getMessage());
             }

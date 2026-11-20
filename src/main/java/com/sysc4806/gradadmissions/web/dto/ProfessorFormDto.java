@@ -5,6 +5,7 @@ import java.util.Set;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,5 +21,6 @@ public class ProfessorFormDto {
     @Email(message = "Invalid email format")
     private String email;
 
+    @NotEmpty(message = "Select at least one research field")
     private Set<Long> researchFieldIds = new LinkedHashSet<>();
 }
