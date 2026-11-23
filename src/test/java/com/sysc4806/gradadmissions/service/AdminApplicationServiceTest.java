@@ -1,9 +1,11 @@
 package com.sysc4806.gradadmissions.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,5 +104,126 @@ class AdminApplicationServiceTest {
 
         assertThat(service.findSubmittedApplication(draftId)).isEmpty();
         assertThat(service.findSubmittedApplication(9999L)).isEmpty();
+    }
+
+    // Routing and screening out (#39)
+
+    private static final LocalDateTime ROUTED = NOV_7.plusDays(3);
+
+    private Professor professor(String name) {
+        return em.persist(new Professor(name, name.toLowerCase().replace(' ', '.') + "@carleton.ca"));
+    }
+
+    private Application reload(Long id) {
+        em.flush();
+        em.clear();
+        return em.find(Application.class, id);
+    }
+
+    @Test
+    void routingCreatesAPendingEvaluationPerProfessorAndPutsTheApplicationUnderReview() {
+        Long id = application("Ada", NOV_7).getId();
+        Professor brian = professor("Brian Okonkwo");
+
+        List<Evaluation> created = service.route(id, List.of(alice.getId(), brian.getId()), ROUTED);
+
+        assertThat(created).extracting(e -> e.getProfessor().getName()).containsExactly("Alice Chen", "Brian Okonkwo");
+        assertThat(created).allSatisfy(e -> {
+            assertThat(e.isSubmitted()).isFalse();
+            assertThat(e.getAssignedAt()).isEqualTo(ROUTED);
+        });
+        assertThat(reload(id).getStatus()).isEqualTo(ApplicationStatus.UNDER_REVIEW);
+        assertThat(service.evaluationsFor(id)).hasSize(2);
+    }
+
+    @Test
+    void routingIgnoresTheSameProfessorListedTwice() {
+        Long id = application("Ada", NOV_7).getId();
+
+        assertThat(service.route(id, List.of(alice.getId(), alice.getId()), ROUTED)).hasSize(1);
+    }
+
+    @Test
+    void anApplicationUnderReviewCanBeRoutedToMoreProfessors() {
+        Long id = application("Ada", NOV_7).getId();
+        Professor brian = professor("Brian Okonkwo");
+        service.route(id, List.of(alice.getId()), ROUTED);
+        em.flush();
+
+        service.route(id, List.of(brian.getId()), ROUTED.plusHours(1));
+
+        assertThat(service.evaluationsFor(id)).extracting(e -> e.getProfessor().getName())
+                .containsExactly("Alice Chen", "Brian Okonkwo");
+    }
+
+    @Test
+    void routingToAProfessorTwiceIsRejectedAndCreatesNothing() {
+        Long id = application("Ada", NOV_7).getId();
+        Professor brian = professor("Brian Okonkwo");
+        service.route(id, List.of(alice.getId()), ROUTED);
+        em.flush();
+
+        assertThatThrownBy(() -> service.route(id, List.of(brian.getId(), alice.getId()), ROUTED))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Alice Chen");
+        assertThat(service.evaluationsFor(id)).hasSize(1);
+    }
+
+    @Test
+    void routingNeedsAtLeastOneKnownProfessor() {
+        Long id = application("Ada", NOV_7).getId();
+
+        assertThatThrownBy(() -> service.route(id, List.of(), ROUTED)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.route(id, null, ROUTED)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.route(id, List.of(9999L), ROUTED)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(reload(id).getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    void draftsAndUnknownApplicationsCannotBeRouted() {
+        Long draftId = application("Draft", null).getId();
+
+        assertThatThrownBy(() -> service.route(draftId, List.of(alice.getId()), ROUTED))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.route(9999L, List.of(alice.getId()), ROUTED))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(service.evaluationsFor(draftId)).isEmpty();
+    }
+
+    @Test
+    void screeningOutASubmittedApplication() {
+        Long id = application("Ada", NOV_7).getId();
+
+        service.screenOut(id);
+
+        assertThat(reload(id).getStatus()).isEqualTo(ApplicationStatus.SCREENED_OUT);
+    }
+
+    @Test
+    void aScreenedOutApplicationCannotBeRouted() {
+        Long id = application("Ada", NOV_7).getId();
+        service.screenOut(id);
+
+        assertThatThrownBy(() -> service.route(id, List.of(alice.getId()), ROUTED))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(service.evaluationsFor(id)).isEmpty();
+    }
+
+    @Test
+    void aRoutedApplicationCannotBeScreenedOut() {
+        Long id = application("Ada", NOV_7).getId();
+        service.route(id, List.of(alice.getId()), ROUTED);
+
+        assertThatThrownBy(() -> service.screenOut(id)).isInstanceOf(IllegalStateException.class);
+        assertThat(reload(id).getStatus()).isEqualTo(ApplicationStatus.UNDER_REVIEW);
+    }
+
+    @Test
+    void allProfessorsAreSortedByName() {
+        professor("Zoe Adams");
+        professor("Brian Okonkwo");
+
+        assertThat(service.allProfessors()).extracting(User::getName)
+                .containsExactly("Alice Chen", "Brian Okonkwo", "Zoe Adams");
     }
 }

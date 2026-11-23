@@ -96,4 +96,33 @@ public class Application {
 		status = ApplicationStatus.SUBMITTED;
 		submittedAt = now;
 	}
+
+	/** Whether the admin can still route this application to (more) professors. */
+	public boolean isRoutable() {
+		return status == ApplicationStatus.SUBMITTED || status == ApplicationStatus.UNDER_REVIEW;
+	}
+
+	/**
+	 * The admin routed the application to professors. It can be routed again while under review,
+	 * to add professors.
+	 */
+	public void startReview() {
+		if (!isRoutable()) {
+			throw new IllegalStateException("Only a submitted application can be routed to professors");
+		}
+		status = ApplicationStatus.UNDER_REVIEW;
+	}
+
+	/** Whether the admin can still screen this application out. */
+	public boolean isScreenable() {
+		return status == ApplicationStatus.SUBMITTED;
+	}
+
+	/** The admin decided the application isn't good enough to send to professors. */
+	public void screenOut() {
+		if (!isScreenable()) {
+			throw new IllegalStateException("Only a submitted application that hasn't been routed can be screened out");
+		}
+		status = ApplicationStatus.SCREENED_OUT;
+	}
 }
