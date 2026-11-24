@@ -5,7 +5,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
-
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,17 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sysc4806.gradadmissions.model.AdmissionCycle;
 import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Application;
+import com.sysc4806.gradadmissions.model.ApplicationStatus;
 import com.sysc4806.gradadmissions.model.PersonalInfo;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
-import com.sysc4806.gradadmissions.model.User;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
-import com.sysc4806.gradadmissions.repository.ApplicantRepository;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
-import com.sysc4806.gradadmissions.repository.UserRepository;
-import com.sysc4806.gradadmissions.model.ApplicationStatus;
 
 /**
  * Applicant-facing use cases. Rule violations are reported as
@@ -34,18 +30,13 @@ import com.sysc4806.gradadmissions.model.ApplicationStatus;
 public class ApplicationService {
 
     private final ApplicationRepository applications;
-    private final ApplicantRepository applicants;
-    private final UserRepository users;
     private final AdmissionCycleRepository cycles;
     private final ResearchFieldRepository fields;
     private final ProfessorRepository professors;
 
-    public ApplicationService(ApplicationRepository applications, ApplicantRepository applicants,
-                              UserRepository users, AdmissionCycleRepository cycles, ResearchFieldRepository fields,
-                              ProfessorRepository professors) {
+    public ApplicationService(ApplicationRepository applications, AdmissionCycleRepository cycles,
+                              ResearchFieldRepository fields, ProfessorRepository professors) {
         this.applications = applications;
-        this.applicants = applicants;
-        this.users = users;
         this.cycles = cycles;
         this.fields = fields;
         this.professors = professors;
@@ -66,12 +57,12 @@ public class ApplicationService {
         return applications.findById(id);
     }
 
-    // Saves a draft application for the active cycle, fields and professors are optional
+    /** Saves a draft application for the active cycle; field and professors are optional. */
     @Transactional
-    public Application saveDraft(PersonalInfo personalInfo, Long fieldId, List<Long> professorIds) {
+    public Application saveDraft(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
+                                 List<Long> professorIds) {
         AdmissionCycle cycle = cycles.findByActiveTrue()
                 .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
-        Applicant applicant = findOrCreateApplicant(personalInfo);
         Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
                 .orElseGet(() -> new Application(applicant, cycle, personalInfo));
         if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
@@ -102,19 +93,18 @@ public class ApplicationService {
                 application.addPreferredProfessor(professor);
             }
         }
-            return applications.save(application);
+        return applications.save(application);
     }
 
     /** Creates the application in the active cycle and submits it at {@code now}. */
     @Transactional
-    public Application submit(PersonalInfo personalInfo, Long fieldId, List<Long> professorIds,
-                              LocalDateTime now) {
+    public Application submit(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
+                              List<Long> professorIds, LocalDateTime now) {
         AdmissionCycle cycle = cycles.findByActiveTrue()
                 .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
         ResearchField field = fields.findById(fieldId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
 
-        Applicant applicant = findOrCreateApplicant(personalInfo);
         Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
                 .orElseGet(() -> new Application(applicant, cycle, personalInfo));
         if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
@@ -137,33 +127,13 @@ public class ApplicationService {
             application.addPreferredProfessor(professor);
         }
         application.submit(now);
-    return applications.save(application);
-    }
-    
-/** The applicant's application in the active cycle, if any. */
-    @Transactional(readOnly = true)
-    public Optional<Application> findActiveCycleApplicationForEmail(String email) {
-        if (email == null || email.isBlank()) {
-            return Optional.empty();
-        }
-        Optional<User> user = users.findByEmail(email.trim());
-        if (user.isEmpty() || !(user.get() instanceof Applicant applicant)) {
-            return Optional.empty();
-        }
-        return cycles.findByActiveTrue()
-                .flatMap(cycle -> applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId()));
+        return applications.save(application);
     }
 
-    /** Emails are unique across all roles, so an existing applicant is reused. */
-    private Applicant findOrCreateApplicant(PersonalInfo info) {
-        Optional<User> existing = users.findByEmail(info.getEmail());
-        if (existing.isEmpty()) {
-            return applicants.save(
-                    new Applicant(info.getFirstName() + " " + info.getLastName(), info.getEmail()));
-        }
-        if (existing.get() instanceof Applicant applicant) {
-            return applicant;
-        }
-        throw new IllegalArgumentException("That email address belongs to another account");
+    /** The applicant's application in the active cycle, if any. */
+    @Transactional(readOnly = true)
+    public Optional<Application> findActiveCycleApplicationForApplicant(Applicant applicant) {
+        return cycles.findByActiveTrue()
+                .flatMap(cycle -> applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId()));
     }
 }

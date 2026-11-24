@@ -21,12 +21,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Application;
-import com.sysc4806.gradadmissions.service.ApplicationService;
-import com.sysc4806.gradadmissions.web.dto.ApplicationFormDto;
-import com.sysc4806.gradadmissions.web.dto.ApplicationSubmit;
 import com.sysc4806.gradadmissions.model.ApplicationStatus;
 import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.service.ApplicationService;
+import com.sysc4806.gradadmissions.service.CurrentUserService;
+import com.sysc4806.gradadmissions.web.dto.ApplicationFormDto;
+import com.sysc4806.gradadmissions.web.dto.ApplicationSubmit;
 
 /** The applicant's "submit an application" flow. */
 @Controller
@@ -37,28 +39,29 @@ public class ApplicationController {
     public record ProfessorOption(Long id, String name) {}
 
     private final ApplicationService service;
+    private final CurrentUserService currentUsers;
 
-    public ApplicationController(ApplicationService service) {
+    public ApplicationController(ApplicationService service, CurrentUserService currentUsers) {
         this.service = service;
+        this.currentUsers = currentUsers;
     }
 
     @GetMapping
-    public String showForm(@RequestParam(required = false) String email, Model model) {
+    public String showForm(Model model) {
+        Applicant applicant = currentUsers.currentApplicant();
         ApplicationFormDto form = new ApplicationFormDto();
         Long selectedFieldId = null;
-        if (email != null && !email.isBlank()) {
-            Optional<Application> existing = service.findActiveCycleApplicationForEmail(email);
-            if (existing.isPresent() && existing.get().getStatus() == ApplicationStatus.DRAFT) {
-                Application app = existing.get();
-                form.setPersonalInfo(app.getPersonalInfo());
-                if (app.getDesiredField() != null) {
-                    selectedFieldId = app.getDesiredField().getId();
-                    form.setDesiredFieldId(selectedFieldId);
-                }
-                form.setProfessorIds(app.getPreferredProfessors().stream()
-                        .map(Professor::getId)
-                        .toList());
+        Optional<Application> existing = service.findActiveCycleApplicationForApplicant(applicant);
+        if (existing.isPresent() && existing.get().getStatus() == ApplicationStatus.DRAFT) {
+            Application app = existing.get();
+            form.setPersonalInfo(app.getPersonalInfo());
+            if (app.getDesiredField() != null) {
+                selectedFieldId = app.getDesiredField().getId();
+                form.setDesiredFieldId(selectedFieldId);
             }
+            form.setProfessorIds(app.getPreferredProfessors().stream()
+                    .map(Professor::getId)
+                    .toList());
         }
         model.addAttribute("form", form);
         return formView(model, selectedFieldId);
@@ -74,11 +77,13 @@ public class ApplicationController {
     }
 
     @PostMapping
-    public String submit(@Validated({Default.class, ApplicationSubmit.class}) @ModelAttribute("form") ApplicationFormDto form, BindingResult result, Model model) {
+    public String submit(@Validated({Default.class, ApplicationSubmit.class}) @ModelAttribute("form") ApplicationFormDto form,
+                         BindingResult result, Model model) {
         if (!result.hasErrors()) {
             try {
-                Application application = service.submit(form.getPersonalInfo(), form.getDesiredFieldId(),
-                        form.getProfessorIds(), LocalDateTime.now());
+                Applicant applicant = currentUsers.currentApplicant();
+                Application application = service.submit(applicant, form.getPersonalInfo(),
+                        form.getDesiredFieldId(), form.getProfessorIds(), LocalDateTime.now());
                 return "redirect:/apply/confirmation/" + application.getId();
             } catch (IllegalArgumentException | IllegalStateException e) {
                 result.reject("application.rejected", e.getMessage());
@@ -93,7 +98,8 @@ public class ApplicationController {
                             BindingResult result, Model model) {
         if (!result.hasErrors()) {
             try {
-                service.saveDraft(form.getPersonalInfo(), form.getDesiredFieldId(),
+                Applicant applicant = currentUsers.currentApplicant();
+                service.saveDraft(applicant, form.getPersonalInfo(), form.getDesiredFieldId(),
                         form.getProfessorIds());
                 model.addAttribute("draftSaved", true);
             } catch (IllegalArgumentException | IllegalStateException e) {
