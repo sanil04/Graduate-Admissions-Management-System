@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Assigned applications')}"><title>Assigned applications</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('professor')}"></header>
+<main class="container">
+    <h1>Assigned applications</h1>
+    <p class="lead" th:text="${#lists.size(evaluations)} + ' application(s) routed to you, newest first.'">2 application(s) routed to you, newest first.</p>
+
+    <p class="notice" th:if="${#lists.isEmpty(evaluations)}">No applications have been routed to you yet.</p>
+
+    <div class="table-wrap" th:unless="${#lists.isEmpty(evaluations)}">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th scope="col">Applicant</th>
+                <th scope="col">Desired field</th>
+                <th scope="col">Routed</th>
+                <th scope="col">Assessment</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="evaluation : ${evaluations}">
+                <td>
+                    <a th:href="@{/professor/applications/{id}(id=${evaluation.application.id})}"
+                       th:text="${evaluation.application.personalInfo.firstName} + ' ' + ${evaluation.application.personalInfo.lastName}">Ada Lovelace</a>
+                </td>
+                <td th:text="${evaluation.application.desiredField} ? ${evaluation.application.desiredField.name} : '-'">AI</td>
+                <td th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</td>
+                <td><span class="status" th:text="${evaluation.submitted} ? 'Submitted' : 'Pending'">Pending</span></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p><a th:href="@{/professor}">&larr; Back to professor page</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
