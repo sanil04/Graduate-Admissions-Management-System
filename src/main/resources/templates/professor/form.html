@@ -20,7 +20,8 @@
             <label for="researchFieldIds">Research fields</label><br>
             <select id="researchFieldIds" th:field="*{researchFieldIds}" multiple size="6">
                 <option th:each="field : ${allResearchFields}" th:value="${field.id}" th:text="${field.name}">Field</option>
-            </select><br>
+            </select>
+            <span th:if="${#fields.hasErrors('researchFieldIds')}" th:errors="*{researchFieldIds}">Error</span><br>
             <small>Hold Ctrl (Cmd on Mac) to select more than one.</small>
         </p>
         <p><button type="submit">Save changes</button></p>

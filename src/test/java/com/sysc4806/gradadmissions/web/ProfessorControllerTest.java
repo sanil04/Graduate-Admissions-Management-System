@@ -128,11 +128,39 @@ class ProfessorControllerTest {
     }
 
     @Test
+    void submittingWithNoResearchFieldsShowsAnErrorAndDoesNotSave() throws Exception {
+        mockMvc.perform(post("/professor/1/edit").with(csrf())
+                        .param("name", "Alan Turing")
+                        .param("email", "alan@carleton.ca"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/form"))
+                .andExpect(model().attributeHasFieldErrors("form", "researchFieldIds"))
+                .andExpect(content().string(containsString("Select at least one research field")));
+
+        verify(service, never()).update(any(), any());
+    }
+
+    @Test
+    void aServiceSideNoFieldsRejectionIsShownOnTheForm() throws Exception {
+        when(service.update(eq(1L), any())).thenThrow(new ProfessorService.NoResearchFieldsException());
+
+        mockMvc.perform(post("/professor/1/edit").with(csrf())
+                        .param("name", "Alan Turing")
+                        .param("email", "alan@carleton.ca")
+                        .param("researchFieldIds", "99"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("professor/form"))
+                .andExpect(model().attributeHasFieldErrors("form", "researchFieldIds"))
+                .andExpect(content().string(containsString("Select at least one research field")));
+    }
+
+    @Test
     void anEmailUsedByAnotherAccountIsShownOnTheForm() throws Exception {
         when(service.update(eq(1L), any()))
                 .thenThrow(new IllegalArgumentException("That email address belongs to another account"));
 
-        mockMvc.perform(post("/professor/1/edit").with(csrf()).param("name", "Alan Turing").param("email", "taken@carleton.ca"))
+        mockMvc.perform(post("/professor/1/edit").with(csrf()).param("name", "Alan Turing").param("email", "taken@carleton.ca")
+                        .param("researchFieldIds", "3"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("professor/form"))
                 .andExpect(content().string(containsString("That email address belongs to another account")));
