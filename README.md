@@ -164,6 +164,8 @@ classDiagram
         LocalDateTime submittedAt
         addPreferredProfessor(Professor)
         submit(LocalDateTime)
+        startReview()
+        screenOut()
     }
 
     class PersonalInfo {
@@ -221,6 +223,7 @@ classDiagram
 - At most 3 preferred professors (`MAX_PREFERRED_PROFESSORS`). This is our team's assumption: the project description only says "a list of profs", so the limit is one constant if we change it.
 - A draft can be missing its desired field and professors. `submit()` requires a `DRAFT` with a desired field and at least one professor, and accepts submissions through the cycle's deadline date.
 - `PersonalInfo` is embedded, so its fields are columns in the `application` table rather than a separate table.
+- `startReview()` (the admin routes it to professors) needs `SUBMITTED` or `UNDER_REVIEW`: an application under review can be routed to more professors. `screenOut()` needs `SUBMITTED`, so an application already sent to professors can't be screened out.
 
 **Rules enforced in `Evaluation`:**
 - One evaluation per (application, professor) pair, enforced by a unique constraint, so an application can't be routed to the same professor twice.
@@ -235,11 +238,12 @@ stateDiagram-v2
     DRAFT --> SUBMITTED : applicant submits
     SUBMITTED --> SCREENED_OUT : admin screens out
     SUBMITTED --> UNDER_REVIEW : admin routes to profs
+    UNDER_REVIEW --> UNDER_REVIEW : admin routes to more profs
     UNDER_REVIEW --> ADMITTED : admin decides
     UNDER_REVIEW --> REJECTED : admin decides
 ```
 
-`SCREENED_OUT` through `REJECTED` are in the enum now, but the admin actions that set them come in later issues (#39 for routing and screening out). When the admin routes an application to a professor, an `Evaluation` row is created. Its `recommendation` stays empty until the professor submits an assessment, and a professor's assessment never changes the application's status.
+The admin sets `UNDER_REVIEW` and `SCREENED_OUT` from the application's detail page (#39). `ADMITTED` and `REJECTED` are in the enum, but the final decision comes in Sprint 3. When the admin routes an application to a professor, an `Evaluation` row is created. Its `recommendation` stays empty until the professor submits an assessment, and a professor's assessment never changes the application's status.
 
 ### ORM patterns
 
