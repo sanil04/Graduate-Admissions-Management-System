@@ -20,6 +20,7 @@ import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.Evaluation;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
+import com.sysc4806.gradadmissions.service.NotificationService;
 
 /** The admin's view of submitted applications: list, detail, routing to professors and screening out. */
 @Controller
@@ -27,14 +28,17 @@ import com.sysc4806.gradadmissions.service.AdminApplicationService;
 public class AdminController {
 
     private final AdminApplicationService service;
+    private final NotificationService notifications;
 
-    public AdminController(AdminApplicationService service) {
+    public AdminController(AdminApplicationService service, NotificationService notifications) {
         this.service = service;
+        this.notifications = notifications;
     }
 
     @GetMapping
     public String list(Model model) {
         model.addAttribute("applications", service.submittedApplications());
+        model.addAttribute("notificationStatus", notifications.status());
         return "admin/applications";
     }
 
@@ -64,15 +68,24 @@ public class AdminController {
     public String route(@PathVariable Long id,
                         @RequestParam(name = "professorIds", required = false) List<Long> professorIds,
                         RedirectAttributes redirect) {
+        List<Evaluation> created;
         try {
-            List<Evaluation> created = service.route(id, professorIds, LocalDateTime.now());
-            redirect.addFlashAttribute("message", "Routed to " + created.stream()
-                    .map(evaluation -> evaluation.getProfessor().getName())
-                    .collect(Collectors.joining(", ")) + ".");
+            created = service.route(id, professorIds, LocalDateTime.now());
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirect.addFlashAttribute("error", e.getMessage());
+            return "redirect:/admin/applications/" + id;
         }
+        NotificationService.Result emails = notifications.notifyRouted(created, LocalDateTime.now());
+        redirect.addFlashAttribute("message", "Routed to " + created.stream()
+                .map(evaluation -> evaluation.getProfessor().getName())
+                .collect(Collectors.joining(", ")) + ". " + describe(emails));
         return "redirect:/admin/applications/" + id;
+    }
+
+    private static String describe(NotificationService.Result emails) {
+        return emails.mailConfigured()
+                ? "Emails: %d sent, %d failed, %d skipped.".formatted(emails.sent(), emails.failed(), emails.skipped())
+                : "No mail server is configured, so no email was sent.";
     }
 
     @PostMapping("/{id}/screen-out")
