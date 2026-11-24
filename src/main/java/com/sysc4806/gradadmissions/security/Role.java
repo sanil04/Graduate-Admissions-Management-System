@@ -31,6 +31,11 @@ public enum Role {
 		return homeUrl;
 	}
 
+	/** For display, e.g. "Professor". */
+	public String label() {
+		return name().charAt(0) + name().substring(1).toLowerCase();
+	}
+
 	/** The Spring Security authority, e.g. {@code ROLE_ADMIN}, matched by {@code hasRole("ADMIN")}. */
 	public String authority() {
 		return "ROLE_" + name();

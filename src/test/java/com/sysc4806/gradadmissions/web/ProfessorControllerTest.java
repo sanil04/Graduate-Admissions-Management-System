@@ -2,6 +2,7 @@ package com.sysc4806.gradadmissions.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
+import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
 
@@ -44,6 +46,7 @@ class ProfessorControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @MockitoBean private ProfessorService service;
+    @MockitoBean private CurrentUserService currentUsers;
 
     private ResearchField field(Long id, String name) {
         ResearchField field = new ResearchField(name);
@@ -51,7 +54,10 @@ class ProfessorControllerTest {
         return field;
     }
 
-    /** Professor 1, Dr. Alan Turing, works in AI (3); Networks (4) also exists. */
+    /**
+     * Professor 1, Dr. Alan Turing, works in AI (3) and is the one logged in; Networks (4) also
+     * exists. Professor 2, Grace Hopper, is another professor.
+     */
     @BeforeEach
     void setUp() {
         ResearchField ai = field(3L, "AI");
@@ -59,7 +65,11 @@ class ProfessorControllerTest {
         turing.setId(1L);
         turing.getResearchFields().add(ai);
         when(service.findById(1L)).thenReturn(Optional.of(turing));
-        when(service.findAll()).thenReturn(List.of(turing));
+        Professor hopper = new Professor("Grace Hopper", "hopper@carleton.ca");
+        hopper.setId(2L);
+        when(service.findById(2L)).thenReturn(Optional.of(hopper));
+        when(service.findAll()).thenReturn(List.of(turing, hopper));
+        when(currentUsers.currentProfessor()).thenReturn(turing);
         when(service.researchFields()).thenReturn(List.of(ai, field(4L, "Networks")));
     }
 
@@ -164,5 +174,24 @@ class ProfessorControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("professor/form"))
                 .andExpect(content().string(containsString("That email address belongs to another account")));
+    }
+
+    @Test
+    void anotherProfessorsProfileHasNoEditLink() throws Exception {
+        mockMvc.perform(get("/professor/2"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Grace Hopper")))
+                .andExpect(content().string(not(containsString("href=\"/professor/2/edit\""))));
+    }
+
+    @Test
+    void aProfessorCannotEditAnotherProfessorsProfile() throws Exception {
+        mockMvc.perform(get("/professor/2/edit")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/professor/2/edit").with(csrf())
+                        .param("name", "Hacked")
+                        .param("email", "hacked@carleton.ca"))
+                .andExpect(status().isForbidden());
+
+        verify(service, never()).update(any(), any());
     }
 }
