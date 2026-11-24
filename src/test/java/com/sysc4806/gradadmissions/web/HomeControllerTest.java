@@ -27,6 +27,7 @@ import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
+import com.sysc4806.gradadmissions.service.NotificationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 
 // ApplicationController, AdminController and ProfessorController are included so the link check
@@ -46,6 +47,7 @@ class HomeControllerTest {
     @MockitoBean private AdminApplicationService adminApplicationService;
     @MockitoBean private ProfessorService professorService;
     @MockitoBean private CurrentUserService currentUserService;
+    @MockitoBean private NotificationService notificationService;
 
     private static RequestPostProcessor as(String role) {
         return user(role.toLowerCase() + "@example.com").roles(role);

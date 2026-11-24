@@ -35,6 +35,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.sysc4806.gradadmissions.model.*;
 import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
+import com.sysc4806.gradadmissions.service.NotificationService;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 
 @WebMvcTest(AdminController.class)
 @Import(SecurityConfig.class)
@@ -45,6 +48,7 @@ class AdminControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @MockitoBean private AdminApplicationService service;
+    @MockitoBean private NotificationService notifications;
 
     /** A submitted application with id 5 by Ada Lovelace, in Machine Learning, preferring Alice Chen. */
     private Application submittedApplication() {
@@ -179,15 +183,63 @@ class AdminControllerTest {
     }
 
     @Test
-    void routingRedirectsToTheDetailPageWithTheProfessorsNamed() throws Exception {
+    void routingEmailsTheProfessorsAndRedirectsWithTheirNames() throws Exception {
         Application application = submittedApplication();
-        when(service.route(eq(5L), eq(List.of(7L, 8L)), any()))
-                .thenReturn(List.of(new Evaluation(application, professor(7L, "Alice Chen"), NOV_7),
-                        new Evaluation(application, professor(8L, "Brian Okonkwo"), NOV_7)));
+        List<Evaluation> created = List.of(new Evaluation(application, professor(7L, "Alice Chen"), NOV_7),
+                new Evaluation(application, professor(8L, "Brian Okonkwo"), NOV_7));
+        when(service.route(eq(5L), eq(List.of(7L, 8L)), any())).thenReturn(created);
+        when(notifications.notifyRouted(eq(created), any())).thenReturn(new NotificationService.Result(2, 0, 0, true));
 
         mockMvc.perform(post("/admin/applications/5/route").with(csrf()).param("professorIds", "7", "8"))
                 .andExpect(redirectedUrl("/admin/applications/5"))
-                .andExpect(flash().attribute("message", "Routed to Alice Chen, Brian Okonkwo."));
+                .andExpect(flash().attribute("message", "Routed to Alice Chen, Brian Okonkwo. Emails: 2 sent, 0 failed, 0 skipped."));
+        verify(notifications).notifyRouted(eq(created), any());
+    }
+
+    @Test
+    void failedAndSkippedEmailsAreReportedButTheRoutingStands() throws Exception {
+        Application application = submittedApplication();
+        List<Evaluation> created = List.of(new Evaluation(application, professor(7L, "Alice Chen"), NOV_7));
+        when(service.route(eq(5L), any(), any())).thenReturn(created);
+        when(notifications.notifyRouted(any(), any())).thenReturn(new NotificationService.Result(0, 1, 2, true));
+
+        mockMvc.perform(post("/admin/applications/5/route").with(csrf()).param("professorIds", "7"))
+                .andExpect(redirectedUrl("/admin/applications/5"))
+                .andExpect(flash().attribute("message", "Routed to Alice Chen. Emails: 0 sent, 1 failed, 2 skipped."))
+                .andExpect(flash().attributeCount(1));
+    }
+
+    @Test
+    void aFailedRoutingSendsNoEmail() throws Exception {
+        when(service.route(eq(5L), any(), any())).thenThrow(new IllegalStateException("Already routed"));
+
+        mockMvc.perform(post("/admin/applications/5/route").with(csrf()).param("professorIds", "7"))
+                .andExpect(flash().attribute("error", "Already routed"));
+        verify(notifications, never()).notifyRouted(any(), any());
+    }
+
+    @Test
+    void theListShowsTheEmailCircuitBreakerState() throws Exception {
+        when(notifications.status()).thenReturn(new NotificationService.Status(true, CircuitBreaker.State.OPEN));
+
+        mockMvc.perform(get("/admin/applications"))
+                .andExpect(content().string(containsString("Email circuit breaker:")))
+                .andExpect(content().string(containsString("OPEN")));
+    }
+
+    @Test
+    void theDetailPageShowsWhetherEachProfessorWasEmailed() throws Exception {
+        Application application = submittedApplication();
+        application.startReview();
+        Evaluation emailed = new Evaluation(application, professor(7L, "Alice Chen"), NOV_7);
+        emailed.markNotified(NOV_7.plusMinutes(1));
+        Evaluation notEmailed = new Evaluation(application, professor(8L, "Brian Okonkwo"), NOV_7);
+        when(service.findSubmittedApplication(5L)).thenReturn(Optional.of(application));
+        when(service.evaluationsFor(5L)).thenReturn(List.of(emailed, notEmailed));
+
+        mockMvc.perform(get("/admin/applications/5"))
+                .andExpect(content().string(containsString("2026-11-07 12:01")))
+                .andExpect(content().string(containsString("Not sent")));
     }
 
     @Test

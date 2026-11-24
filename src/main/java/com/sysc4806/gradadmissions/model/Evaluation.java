@@ -50,6 +50,9 @@ public class Evaluation {
 
 	private LocalDateTime submittedAt;
 
+	/** When the professor was emailed; null if they weren't. */
+	private LocalDateTime notifiedAt;
+
 	public Evaluation(Application application, Professor professor, LocalDateTime assignedAt) {
 		this.application = application;
 		this.professor = professor;
@@ -58,6 +61,10 @@ public class Evaluation {
 
 	public boolean isSubmitted() {
 		return recommendation != null;
+	}
+
+	public void markNotified(LocalDateTime now) {
+		this.notifiedAt = now;
 	}
 
 	/** Records the professor's assessment. It can be submitted only once. */

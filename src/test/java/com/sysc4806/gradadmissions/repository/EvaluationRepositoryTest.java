@@ -115,4 +115,23 @@ class EvaluationRepositoryTest {
 		assertThat(evaluations.existsByApplicationIdAndProfessorId(adasApplication.getId(), alice.getId())).isTrue();
 		assertThat(evaluations.existsByApplicationIdAndProfessorId(gracesApplication.getId(), alice.getId())).isFalse();
 	}
+
+	@Test
+	void markingAnEvaluationNotifiedKeepsAnAssessmentSubmittedWhileTheEmailWasSending() {
+		Long id = evaluations.save(new Evaluation(adasApplication, alice, ROUTED)).getId();
+		flushAndClear();
+		// The professor submits their assessment while the routing email is still being sent.
+		Evaluation reviewed = evaluations.findById(id).orElseThrow();
+		reviewed.submitAssessment(Recommendation.RECOMMEND_NO_SUPERVISION, "Strong candidate", ROUTED.plusHours(1));
+		flushAndClear();
+
+		LocalDateTime emailed = ROUTED.plusHours(2);
+		assertThat(evaluations.markNotified(id, emailed)).isEqualTo(1);
+		flushAndClear();
+
+		Evaluation saved = evaluations.findById(id).orElseThrow();
+		assertThat(saved.getNotifiedAt()).isEqualTo(emailed);
+		assertThat(saved.getRecommendation()).isEqualTo(Recommendation.RECOMMEND_NO_SUPERVISION);
+		assertThat(saved.getComments()).isEqualTo("Strong candidate");
+	}
 }

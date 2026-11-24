@@ -7,6 +7,9 @@
     <h1>Submitted applications</h1>
     <p class="lead" th:text="${#lists.size(applications)} + ' application(s), newest first.'">2 application(s), newest first.</p>
 
+    <p class="muted" th:if="${notificationStatus}">Email circuit breaker:
+        <span class="status" th:text="${notificationStatus.mailConfigured} ? ${notificationStatus.state} : 'OFF (log only)'">CLOSED</span></p>
+
     <p class="notice" th:if="${#lists.isEmpty(applications)}">No applications have been submitted yet.</p>
 
     <div class="table-wrap" th:unless="${#lists.isEmpty(applications)}">

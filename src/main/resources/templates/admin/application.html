@@ -40,12 +40,13 @@
     <div class="table-wrap" th:unless="${#lists.isEmpty(evaluations)}">
         <table class="data-table">
             <thead>
-            <tr><th>Professor</th><th>Routed</th><th>Assessment</th><th>Comments</th></tr>
+            <tr><th>Professor</th><th>Routed</th><th>Emailed</th><th>Assessment</th><th>Comments</th></tr>
             </thead>
             <tbody>
             <tr th:each="evaluation : ${evaluations}">
                 <td th:text="${evaluation.professor.name}">Alice Chen</td>
                 <td th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</td>
+                <td th:text="${evaluation.notifiedAt != null} ? ${#temporals.format(evaluation.notifiedAt, 'yyyy-MM-dd HH:mm')} : 'Not sent'">2026-11-20 09:00</td>
                 <td>
                     <span th:if="${evaluation.submitted}" th:text="${evaluation.recommendation.label}">Recommend, and yes to funding</span>
                     <span th:unless="${evaluation.submitted}" class="status">Pending</span>
