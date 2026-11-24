@@ -1,18 +1,25 @@
 package com.sysc4806.gradadmissions.web;
 
+import java.time.LocalDateTime;
+import java.util.NoSuchElementException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.sysc4806.gradadmissions.model.Evaluation;
+import com.sysc4806.gradadmissions.model.Recommendation;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 
-/** The applications routed to the logged-in professor: list and detail. */
+/** The applications routed to the logged-in professor: list, detail and assessment. */
 @Controller
 @RequestMapping("/professor/applications")
 public class ProfessorApplicationController {
@@ -38,6 +45,35 @@ public class ProfessorApplicationController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         model.addAttribute("evaluation", evaluation);
         model.addAttribute("app", evaluation.getApplication());
+        model.addAttribute("recommendations", Recommendation.values());
         return "professor/application";
+    }
+
+    /**
+     * Submits the professor's assessment: one recommendation and optional comments. Rule violations
+     * (nothing chosen, comments too long, already submitted) go back to the page as an error, with what
+     * the professor typed. 404 when the application wasn't routed to this professor.
+     */
+    @PostMapping("/{applicationId}/assessment")
+    public String submitAssessment(@PathVariable Long applicationId,
+                                   @RequestParam(name = "recommendation", required = false) Recommendation recommendation,
+                                   @RequestParam(name = "comments", required = false) String comments,
+                                   RedirectAttributes redirect) {
+        Long professorId = currentUsers.currentProfessor().getId();
+        try {
+            service.submitAssessment(applicationId, professorId, recommendation, comments, LocalDateTime.now());
+            redirect.addFlashAttribute("message", "Your assessment was submitted.");
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+            if (recommendation != null) {
+                redirect.addFlashAttribute("draftRecommendation", recommendation);
+            }
+            if (comments != null) {
+                redirect.addFlashAttribute("draftComments", comments);
+            }
+        }
+        return "redirect:/professor/applications/" + applicationId;
     }
 }
