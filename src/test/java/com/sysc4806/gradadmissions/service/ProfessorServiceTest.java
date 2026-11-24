@@ -75,6 +75,7 @@ class ProfessorServiceTest {
         form.setEmail("smith@carleton.ca");
         when(professorRepository.findById(1L)).thenReturn(Optional.of(smith));
         when(userRepository.findByEmail("smith@carleton.ca")).thenReturn(Optional.of(smith));
+        when(researchFieldRepository.findAllById(Set.of(4L))).thenReturn(List.of(new ResearchField("Networks")));
         when(professorRepository.save(smith)).thenReturn(smith);
 
         assertThat(professorService.update(1L, form).getEmail()).isEqualTo("smith@carleton.ca");
@@ -91,5 +92,41 @@ class ProfessorServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("That email address belongs to another account");
         verify(professorRepository, never()).save(smith);
+    }
+
+    @Test
+    void updateRejectsAnEmptySelectionOfResearchFields() {
+        form.setResearchFieldIds(Set.of());
+        when(professorRepository.findById(1L)).thenReturn(Optional.of(smith));
+
+        assertThatThrownBy(() -> professorService.update(1L, form))
+                .isInstanceOf(ProfessorService.NoResearchFieldsException.class)
+                .hasMessage("Select at least one research field");
+        verify(professorRepository, never()).save(smith);
+        assertThat(smith.getResearchFields()).hasSize(1);
+        assertThat(smith.getName()).isEqualTo("Dr. Smith");
+    }
+
+    @Test
+    void updateRejectsANullSelectionOfResearchFields() {
+        form.setResearchFieldIds(null);
+        when(professorRepository.findById(1L)).thenReturn(Optional.of(smith));
+
+        assertThatThrownBy(() -> professorService.update(1L, form))
+                .isInstanceOf(ProfessorService.NoResearchFieldsException.class);
+        verify(professorRepository, never()).save(smith);
+    }
+
+    @Test
+    void updateRejectsSelectionsThatMatchNoExistingResearchField() {
+        when(professorRepository.findById(1L)).thenReturn(Optional.of(smith));
+        when(userRepository.findByEmail("jane.smith@carleton.ca")).thenReturn(Optional.empty());
+        when(researchFieldRepository.findAllById(Set.of(4L))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> professorService.update(1L, form))
+                .isInstanceOf(ProfessorService.NoResearchFieldsException.class);
+        verify(professorRepository, never()).save(smith);
+        assertThat(smith.getName()).isEqualTo("Dr. Smith");
+        assertThat(smith.getResearchFields()).hasSize(1);
     }
 }

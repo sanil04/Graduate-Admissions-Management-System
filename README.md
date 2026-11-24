@@ -23,7 +23,7 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
 | **Weekly scrums** | [Issues titled "Weekly scrum"](https://github.com/sanil04/SYSC-4806-Group-Project/issues?q=is%3Aissue+%22Weekly+scrum%22) |
 
-**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security and Spring Mail come in Sprint 2.
+**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security (form login, BCrypt, role-based URL rules). Spring Mail comes later in Sprint 2.
 
 ---
 
@@ -31,19 +31,32 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 
 _Mirrors the Kanban. Last updated at the end of Sprint 1 (Milestone 1, Nov 12)._
 
-Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** There is no login yet; the home page links to the Applicant, Professor and Admin sections.
+Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** Since #33, every section needs a login (see [Demo logins](#demo-logins)), and each role sees only its own section.
 
 ### What you can do on the live site
 
-| Page | What it does |
-|---|---|
-| `/` | Home page with links to the three sections |
-| `/professor/profiles` | List of professors; open one to view it, then **Edit profile** to change name, email and research fields |
-| `/apply` | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
-| `/apply/confirmation/{id}` | Confirmation shown after submitting |
-| `/admin/applications` | Table of submitted applications, newest first; open one for the full details |
+| Page | Who | What it does |
+|---|---|---|
+| `/` | Everyone | Home page: a **Log in** card, or once logged in, a link to your section |
+| `/login` | Everyone | Log in with email and password. The nav shows who is logged in and a **Log out** button |
+| `/professor/profiles` | Professor | List of professors; open one to view it. On your own profile, **Edit profile** changes your name, email and research fields |
+| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting |
+| `/admin/applications` | Admin | Table of submitted applications, newest first; open one for the full details |
 
-Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
+Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; a demo applicant; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
+
+**Access rules** ([`SecurityConfig`](src/main/java/com/sysc4806/gradadmissions/config/SecurityConfig.java)):
+
+| URL | Who can open it |
+|---|---|
+| `/`, `/login`, `/register`, `/css/**`, `/error` | Everyone |
+| `/admin/**` | Admins |
+| `/professor/**` | Professors. A professor can view every profile but edit only their own. |
+| `/applicant`, `/apply/**` | Applicants |
+| Anything else | Any logged-in user |
+
+Visitors who aren't logged in are sent to `/login`, then back to the page they asked for. A logged-in user who opens another role's page gets a 403 "Access denied" page. Every POST needs the CSRF token, which Thymeleaf adds to `th:action` forms automatically. In code, `CurrentUserService` returns the logged-in `Admin`, `Professor` or `Applicant`.
 
 ### Sprint 1 issues
 
@@ -67,7 +80,13 @@ Seeded data (created on startup if missing): research fields AI, Software Engine
 | #15 | Weekly scrum | Ongoing |
 | #16 | Prepare the Milestone 1 demo | In progress |
 
-**Tests:** 63, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14).
+### Sprint 2 issues (in progress)
+
+| Issue | Item | Status |
+|---|---|---|
+| #33 | Login and role-based access with Spring Security | In review |
+
+**Tests:** 90, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
 
 ## Sprint plan
 
@@ -105,7 +124,7 @@ Planned for Sprint 3: email notifications to professors, enforced submission and
 
 Models only. Whoever changes an entity updates this diagram **in the same PR**.
 
-> **Status:** matches the entities built in #7 (`src/main/java/com/sysc4806/gradadmissions/model`). `Document` and `Evaluation` are still planned and are added by the issues that need them.
+> **Status:** matches the entities built in #7 (`src/main/java/com/sysc4806/gradadmissions/model`). `Evaluation` and `Recommendation` added in #32. `Document` is still planned and is added by the issue that needs it.
 
 ```mermaid
 classDiagram
@@ -145,6 +164,8 @@ classDiagram
         LocalDateTime submittedAt
         addPreferredProfessor(Professor)
         submit(LocalDateTime)
+        startReview()
+        screenOut()
     }
 
     class PersonalInfo {
@@ -154,6 +175,26 @@ classDiagram
         String email
         String phoneNumber
         String citizenship
+    }
+
+    class Evaluation {
+        Long id
+        LocalDateTime assignedAt
+        Recommendation recommendation
+        String comments
+        LocalDateTime submittedAt
+        LocalDateTime notifiedAt
+        isSubmitted() boolean
+        submitAssessment(Recommendation, String, LocalDateTime)
+        markNotified(LocalDateTime)
+    }
+
+    class Recommendation {
+        <<enumeration>>
+        DO_NOT_RECOMMEND
+        RECOMMEND_NO_SUPERVISION
+        RECOMMEND_NO_FUNDING
+        RECOMMEND_WITH_FUNDING
     }
 
     class ApplicationStatus {
@@ -173,6 +214,9 @@ classDiagram
     Application "*" --> "0..3" Professor : preferredProfessors
     Professor "*" --> "*" ResearchField : researchFields
     Application --> ApplicationStatus
+    Evaluation "*" --> "1" Application : application
+    Evaluation "*" --> "1" Professor : professor
+    Evaluation --> "0..1" Recommendation
 ```
 
 **Login and roles:** the role isn't a column. It's the `User` subclass (`Admin`, `Professor`, `Applicant`), which `security/Role` maps to `ROLE_ADMIN`, `ROLE_PROFESSOR` or `ROLE_APPLICANT`. `passwordHash` is nullable because production uses `ddl-auto=update`, which can't add a NOT NULL column to a table that already has rows.
@@ -181,6 +225,11 @@ classDiagram
 - At most 3 preferred professors (`MAX_PREFERRED_PROFESSORS`). This is our team's assumption: the project description only says "a list of profs", so the limit is one constant if we change it.
 - A draft can be missing its desired field and professors. `submit()` requires a `DRAFT` with a desired field and at least one professor, and accepts submissions through the cycle's deadline date.
 - `PersonalInfo` is embedded, so its fields are columns in the `application` table rather than a separate table.
+- `startReview()` (the admin routes it to professors) needs `SUBMITTED` or `UNDER_REVIEW`: an application under review can be routed to more professors. `screenOut()` needs `SUBMITTED`, so an application already sent to professors can't be screened out.
+
+**Rules enforced in `Evaluation`:**
+- One evaluation per (application, professor) pair, enforced by a unique constraint, so an application can't be routed to the same professor twice.
+- `recommendation` is null until the professor submits. `submitAssessment()` needs a recommendation, accepts optional comments (at most 2000 characters, blank stored as null), and can run only once.
 
 **Status flow.** Only the admin changes an application's status:
 
@@ -191,11 +240,12 @@ stateDiagram-v2
     DRAFT --> SUBMITTED : applicant submits
     SUBMITTED --> SCREENED_OUT : admin screens out
     SUBMITTED --> UNDER_REVIEW : admin routes to profs
+    UNDER_REVIEW --> UNDER_REVIEW : admin routes to more profs
     UNDER_REVIEW --> ADMITTED : admin decides
     UNDER_REVIEW --> REJECTED : admin decides
 ```
 
-`SCREENED_OUT` through `REJECTED` are in the enum now, but the admin actions that set them come in later issues. The planned design: an `Evaluation` row is created when the admin routes an application to a professor, its `recommendation` stays empty until the professor submits an assessment, and a professor's assessment never changes the application's status.
+The admin sets `UNDER_REVIEW` and `SCREENED_OUT` from the application's detail page (#39). `ADMITTED` and `REJECTED` are in the enum, but the final decision comes in Sprint 3. When the admin routes an application to a professor, an `Evaluation` row is created. Its `recommendation` stays empty until the professor submits an assessment, and a professor's assessment never changes the application's status.
 
 ### ORM patterns
 
@@ -203,14 +253,14 @@ stateDiagram-v2
 |---|---|---|
 | Class Table Inheritance (`@Inheritance(JOINED)`) | `users` + `applicant`, `professor`, `admin` tables. Each subclass PK is also an FK to `users.id` | Subclasses have their own relationships. SINGLE_TABLE can't put NOT NULL on subclass-only columns. TABLE_PER_CLASS makes polymorphic queries a UNION. Cost: one join per subclass load. |
 | Association Table Mapping (`@ManyToMany` + `@JoinTable`) | `professor_research_fields`, `application_preferred_professors` | Many-to-many needs a join table with a composite PK. |
-| Foreign Key Mapping (`@ManyToOne`) | `application.applicant_id`, `application.cycle_id`, `application.desired_field_id` | The "many" side owns the FK column. |
+| Foreign Key Mapping (`@ManyToOne`) | `application.applicant_id`, `application.cycle_id`, `application.desired_field_id`, `evaluation.application_id`, `evaluation.professor_id` | The "many" side owns the FK column. |
 | Embedded Value (`@Embeddable` / `@Embedded`) | `PersonalInfo` columns inside `application` | A value object with no identity of its own, so it doesn't need its own table. |
 | Identity Field (`GenerationType.IDENTITY`) | Every root entity | Surrogate keys generated by the database. |
-| Enum mapping (`@Enumerated(STRING)`) | `application.status` | Reordering an enum can't corrupt stored rows. |
+| Enum mapping (`@Enumerated(STRING)`) | `application.status`, `evaluation.recommendation` | Reordering an enum can't corrupt stored rows. |
 
 ## Database schema
 
-> **Status:** generated by Hibernate from the current entities (PostgreSQL dialect); regenerated on Nov 18 for `users.password_hash` (#33). The full DDL is in [`docs/schema.sql`](docs/schema.sql). In production, Hibernate creates the same tables in Azure PostgreSQL from these entities (`ddl-auto=update`).
+> **Status:** generated by Hibernate from the current entities (PostgreSQL dialect); regenerated on Nov 23 for `evaluation.notified_at` (#49). The full DDL is in [`docs/schema.sql`](docs/schema.sql). In production, Hibernate creates the same tables in Azure PostgreSQL from these entities (`ddl-auto=update`).
 
 ```mermaid
 erDiagram
@@ -224,6 +274,8 @@ erDiagram
     professor ||--o{ application_preferred_professors : "professor_id"
     professor ||--o{ professor_research_fields : "professor_id"
     research_field ||--o{ professor_research_fields : "research_field_id"
+    application ||--o{ evaluation : "application_id"
+    professor ||--o{ evaluation : "professor_id"
 
     users {
         bigint id PK
@@ -266,6 +318,16 @@ erDiagram
         bigint professor_id PK,FK
         bigint research_field_id PK,FK
     }
+    evaluation {
+        bigint id PK
+        bigint application_id FK "UK with professor_id"
+        bigint professor_id FK "UK with application_id"
+        timestamp assigned_at
+        varchar recommendation "NULL until submitted"
+        varchar comments "max 2000"
+        timestamp submitted_at
+        timestamp notified_at "NULL = not emailed"
+    }
 ```
 
 **Generating the real DDL** after a model change (PostgreSQL dialect, writes `docs/schema.sql`):
@@ -281,6 +343,17 @@ java -jar target/gradadmissions-0.0.1-SNAPSHOT.jar \
 ```
 
 ---
+
+## Resilience: email behind a circuit breaker
+
+_Presentation topic 6 (Circuit Breaker Pattern), built in #49._
+
+After the admin routes an application, `NotificationService` emails each professor a link to their assigned applications. Each send goes through a Resilience4j `CircuitBreaker` ([`NotificationConfig`](src/main/java/com/sysc4806/gradadmissions/config/NotificationConfig.java)):
+
+- **CLOSED:** emails are sent. **OPEN:** once at least half of the last 5 sends (3 or more) failed, sends are skipped for 60 s. **HALF_OPEN:** then one trial send closes or reopens it.
+- Emails go out after the routing commits and failures are never thrown, so routing always stands. Unsent emails leave `notified_at` empty ("Not sent" on the admin page). SMTP timeouts are 3 s.
+- The breaker state is shown on **Admin → Applications**. We use Resilience4j's core library because Hystrix is in maintenance mode and doesn't support Spring Boot 3+.
+- With no `SPRING_MAIL_HOST` set, emails are only logged. Pointing it at a server that doesn't answer is an easy way to demo the breaker opening.
 
 ## Build and run
 

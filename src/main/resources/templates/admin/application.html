@@ -6,6 +6,8 @@
 <main class="container">
     <h1 th:text="${app.personalInfo.firstName} + ' ' + ${app.personalInfo.lastName}">Ada Lovelace</h1>
     <p class="lead">Status: <span class="status" th:text="${app.status}">SUBMITTED</span></p>
+    <p class="notice notice-success" role="status" th:if="${message}" th:text="${message}">Routed to Alice Chen.</p>
+    <p class="notice notice-error" role="alert" th:if="${error}" th:text="${error}">Choose at least one professor</p>
 
     <h2>Personal information</h2>
     <dl class="details">
@@ -32,6 +34,57 @@
             </ul>
         </dd>
     </dl>
+
+    <h2>Professor review</h2>
+    <p th:if="${#lists.isEmpty(evaluations)}" class="muted">Not routed to any professor yet.</p>
+    <div class="table-wrap" th:unless="${#lists.isEmpty(evaluations)}">
+        <table class="data-table">
+            <thead>
+            <tr><th>Professor</th><th>Routed</th><th>Emailed</th><th>Assessment</th><th>Comments</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="evaluation : ${evaluations}">
+                <td th:text="${evaluation.professor.name}">Alice Chen</td>
+                <td th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</td>
+                <td th:text="${evaluation.notifiedAt != null} ? ${#temporals.format(evaluation.notifiedAt, 'yyyy-MM-dd HH:mm')} : 'Not sent'">2026-11-20 09:00</td>
+                <td>
+                    <span th:if="${evaluation.submitted}" th:text="${evaluation.recommendation.label}">Recommend, and yes to funding</span>
+                    <span th:unless="${evaluation.submitted}" class="status">Pending</span>
+                </td>
+                <td th:text="${evaluation.comments} ?: '-'">Strong candidate.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <section th:if="${app.routable}" class="admin-action">
+        <h3 th:text="${#lists.isEmpty(evaluations)} ? 'Route to professors' : 'Route to more professors'">Route to professors</h3>
+        <form th:action="@{/admin/applications/{id}/route(id=${app.id})}" method="post"
+              th:unless="${#lists.isEmpty(routableProfessors)}">
+            <p class="muted">The applicant's preferred professors are selected. Each professor gets the application to assess.</p>
+            <ul class="plain-list">
+                <li th:each="professor : ${routableProfessors}">
+                    <label>
+                        <input type="checkbox" name="professorIds" th:value="${professor.id}"
+                               th:checked="${preferredIds.contains(professor.id)}">
+                        <span th:text="${professor.name}">Alice Chen</span>
+                        <span class="muted" th:if="${preferredIds.contains(professor.id)}">(preferred)</span>
+                    </label>
+                </li>
+            </ul>
+            <p><button type="submit">Route application</button></p>
+        </form>
+        <p th:if="${#lists.isEmpty(routableProfessors)}" class="muted">It has been routed to every professor.</p>
+    </section>
+
+    <section th:if="${app.screenable}" class="admin-action">
+        <h3>Screen out</h3>
+        <form th:action="@{/admin/applications/{id}/screen-out(id=${app.id})}" method="post"
+              onsubmit="return confirm('Screen out this application? It will not be sent to professors.');">
+            <p class="muted">Use this when the application isn't good enough to send to professors.</p>
+            <p><button type="submit">Screen out</button></p>
+        </form>
+    </section>
 
     <p><a th:href="@{/admin/applications}">&larr; Back to all applications</a></p>
 </main>

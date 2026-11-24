@@ -16,7 +16,7 @@
             </ul>
         </dd>
     </dl>
-    <p><a th:href="@{/professor/{id}/edit(id=${professor.id})}">Edit profile</a></p>
+    <p th:if="${canEdit}"><a th:href="@{/professor/{id}/edit(id=${professor.id})}">Edit profile</a></p>
     <p><a th:href="@{/professor/profiles}">&larr; Back to all professors</a></p>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
