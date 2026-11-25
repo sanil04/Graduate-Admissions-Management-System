@@ -7,6 +7,7 @@
     <h1>Log in</h1>
     <p class="notice" th:if="${param.error}">Wrong email or password.</p>
     <p class="notice" th:if="${param.logout}">You have been logged out.</p>
+    <p class="notice notice-success" role="status" th:if="${param.registered}">Your account was created. Log in to apply.</p>
 
     <!-- th:action adds the hidden CSRF token that Spring Security requires on every POST. -->
     <form class="login-form" th:action="@{/login}" method="post">
@@ -20,6 +21,7 @@
         </p>
         <p><button type="submit">Log in</button></p>
     </form>
+    <p>New applicant? <a th:href="@{/register}">Create an account</a></p>
     <p><a th:href="@{/}">&larr; Back to home</a></p>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
