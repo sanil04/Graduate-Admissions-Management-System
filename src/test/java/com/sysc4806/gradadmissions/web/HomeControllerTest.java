@@ -11,8 +11,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,10 +26,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.sysc4806.gradadmissions.config.SecurityConfig;
+import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
@@ -56,6 +62,12 @@ class HomeControllerTest {
         when(applicationService.researchFields()).thenReturn(List.of());
         when(professorService.researchFields()).thenReturn(List.of());
         when(professorService.findAll()).thenReturn(List.of());
+    void stubApplicantForApplyLinks() {
+        Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
+        ReflectionTestUtils.setField(applicant, "id", 1L);
+        when(currentUserService.currentApplicant()).thenReturn(applicant);
+        when(applicationService.findActiveCycleApplicationForApplicant(any())).thenReturn(Optional.empty());
+        when(applicationService.researchFields()).thenReturn(List.of());
     }
 
     private static RequestPostProcessor as(String role) {
