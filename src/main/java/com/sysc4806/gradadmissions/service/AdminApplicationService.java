@@ -1,12 +1,15 @@
 package com.sysc4806.gradadmissions.service;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +17,11 @@ import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.ApplicationStatus;
 import com.sysc4806.gradadmissions.model.Evaluation;
 import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.model.ResearchField;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
+import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 
 /**
  * Admin-facing use cases for reviewing applications. Rule violations are reported as
@@ -29,18 +34,45 @@ public class AdminApplicationService {
     private final ApplicationRepository applications;
     private final EvaluationRepository evaluations;
     private final ProfessorRepository professors;
+    private final ResearchFieldRepository fields;
 
     public AdminApplicationService(ApplicationRepository applications, EvaluationRepository evaluations,
-                                   ProfessorRepository professors) {
+                                   ProfessorRepository professors, ResearchFieldRepository fields) {
         this.applications = applications;
         this.evaluations = evaluations;
         this.professors = professors;
+        this.fields = fields;
     }
 
     /** All applications that have been submitted (drafts excluded), newest first. */
     @Transactional(readOnly = true)
     public List<Application> submittedApplications() {
-        return applications.findByStatusNotOrderBySubmittedAtDesc(ApplicationStatus.DRAFT);
+        return submittedApplications(null, null, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Application> submittedApplications(Long fieldId, Long professorId, ApplicationStatus status,
+                                                   LocalDate submittedFrom, LocalDate submittedTo) {
+        if (submittedFrom != null && submittedTo != null && submittedFrom.isAfter(submittedTo)) {
+            throw new IllegalArgumentException("The start date must be on or before the end date");
+        }
+        Specification<Application> filter = (root, query, cb) -> {
+            List<Predicate> conditions = new ArrayList<>();
+            conditions.add(cb.notEqual(root.get("status"), ApplicationStatus.DRAFT));
+            if (fieldId != null) conditions.add(cb.equal(root.get("desiredField").get("id"), fieldId));
+            if (professorId != null) conditions.add(cb.equal(root.join("preferredProfessors").get("id"), professorId));
+            if (status != null) conditions.add(cb.equal(root.get("status"), status));
+            if (submittedFrom != null) conditions.add(cb.greaterThanOrEqualTo(root.get("submittedAt"), submittedFrom.atStartOfDay()));
+            if (submittedTo != null) conditions.add(cb.lessThan(root.get("submittedAt"), submittedTo.plusDays(1).atStartOfDay()));
+            query.distinct(true);
+            return cb.and(conditions.toArray(Predicate[]::new));
+        };
+        return applications.findAll(filter, Sort.by(Sort.Direction.DESC, "submittedAt"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ResearchField> researchFields() {
+        return fields.findAll(Sort.by("name"));
     }
 
     /** A submitted application by id; drafts are not visible to the admin. */
