@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Import;
 
 import com.sysc4806.gradadmissions.model.*;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
-import com.sysc4806.gradadmissions.repository.UserRepository;
 
 @DataJpaTest
 @Import(ApplicationService.class)
@@ -27,7 +26,6 @@ class ApplicationServiceTest {
     @Autowired private TestEntityManager em;
     @Autowired private ApplicationService service;
     @Autowired private ApplicationRepository applications;
-    @Autowired private UserRepository users;
 
     private Applicant ada;
     private AdmissionCycle cycle;
@@ -54,7 +52,7 @@ class ApplicationServiceTest {
 
     @Test
     void submitRecordsASubmittedApplicationWithTimestamp() {
-        Long id = service.submit(info, ml.getId(), List.of(alice.getId()), NOW).getId();
+        Long id = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW).getId();
         em.flush();
         em.clear();
 
@@ -68,34 +66,15 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void submitReusesTheApplicantWithTheSameEmail() {
-        Application saved = service.submit(info, ml.getId(), List.of(alice.getId()), NOW);
+    void submitUsesThePassedInApplicant() {
+        Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
 
         assertThat(saved.getApplicant().getId()).isEqualTo(ada.getId());
     }
 
     @Test
-    void submitCreatesAnApplicantForANewEmail() {
-        PersonalInfo grace = new PersonalInfo("Grace", "Hopper", "grace@example.com", null, null);
-
-        Application saved = service.submit(grace, ml.getId(), List.of(alice.getId()), NOW);
-
-        assertThat(saved.getApplicant().getName()).isEqualTo("Grace Hopper");
-        assertThat(users.findByEmail("grace@example.com")).get().isInstanceOf(Applicant.class);
-    }
-
-    @Test
-    void submitRejectsAnEmailThatBelongsToAnotherRole() {
-        PersonalInfo clash = new PersonalInfo("Ada", "Lovelace", "alice@carleton.ca", null, null);
-
-        assertThatThrownBy(() -> service.submit(clash, ml.getId(), List.of(alice.getId()), NOW))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("another account");
-    }
-
-    @Test
     void submitIgnoresRepeatedProfessors() {
-        Application saved = service.submit(info, ml.getId(), List.of(alice.getId(), alice.getId()), NOW);
+        Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId(), alice.getId()), NOW);
 
         assertThat(saved.getPreferredProfessors()).hasSize(1);
     }
@@ -105,7 +84,7 @@ class ApplicationServiceTest {
         ResearchField networks = em.persist(new ResearchField("Networks"));
         Professor bob = professorIn("Bob", networks);
 
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(bob.getId()), NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(bob.getId()), NOW))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Bob");
     }
@@ -115,25 +94,25 @@ class ApplicationServiceTest {
         List<Long> ids = List.of(alice.getId(), professorIn("B", ml).getId(), professorIn("C", ml).getId(),
                 professorIn("D", ml).getId());
 
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), ids, NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), ids, NOW))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void submitRejectsNoProfessors() {
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(), NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(), NOW))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void submitRejectsAnUnknownField() {
-        assertThatThrownBy(() -> service.submit(info, 999_999L, List.of(alice.getId()), NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, 999_999L, List.of(alice.getId()), NOW))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void submitRejectsAnUnknownProfessor() {
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(999_999L), NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(999_999L), NOW))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -141,7 +120,7 @@ class ApplicationServiceTest {
     void submitRejectsAfterTheApplicationDeadline() {
         LocalDateTime dayAfter = cycle.getApplicationDeadline().plusDays(1).atStartOfDay();
 
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(alice.getId()), dayAfter))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(alice.getId()), dayAfter))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("The application deadline has passed");
     }
@@ -151,7 +130,7 @@ class ApplicationServiceTest {
         cycle.setActive(false);
         em.flush();
 
-        assertThatThrownBy(() -> service.submit(info, ml.getId(), List.of(alice.getId()), NOW))
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Applications are not open right now");
     }
@@ -176,9 +155,49 @@ class ApplicationServiceTest {
 
     @Test
     void findApplicationReturnsTheSavedApplication() {
-        Long id = service.submit(info, ml.getId(), List.of(alice.getId()), NOW).getId();
+        Long id = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW).getId();
 
         assertThat(service.findApplication(id)).isPresent();
         assertThat(service.findApplication(999_999L)).isEmpty();
+    }
+
+    @Test
+    void saveDraftDoesNotRequireFieldOrProfessors() {
+        Application draft = service.saveDraft(ada, info, null, List.of());
+
+        assertThat(draft.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+        assertThat(draft.getDesiredField()).isNull();
+        assertThat(draft.getPreferredProfessors()).isEmpty();
+        assertThat(draft.getSubmittedAt()).isNull();
+    }
+
+    @Test
+    void saveDraftThenSubmitReusesTheSameApplication() {
+        Application draft = service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()));
+
+        Application submitted = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThat(submitted.getId()).isEqualTo(draft.getId());
+        assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(applications.count()).isEqualTo(1);
+    }
+
+    @Test
+    void secondSubmitForTheSameCycleIsRejected() {
+        service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already submitted");
+    }
+
+    @Test
+    void findActiveCycleApplicationForApplicantFindsTheDraft() {
+        service.saveDraft(ada, info, null, List.of());
+
+        assertThat(service.findActiveCycleApplicationForApplicant(ada))
+                .get()
+                .extracting(Application::getStatus)
+                .isEqualTo(ApplicationStatus.DRAFT);
     }
 }

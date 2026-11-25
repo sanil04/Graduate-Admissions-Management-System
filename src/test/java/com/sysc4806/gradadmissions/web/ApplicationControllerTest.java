@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import com.sysc4806.gradadmissions.model.*;
 import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.ApplicationService;
+import com.sysc4806.gradadmissions.service.CurrentUserService;
 
 @WebMvcTest(ApplicationController.class)
 @Import(SecurityConfig.class)
@@ -44,6 +46,16 @@ class ApplicationControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @MockitoBean private ApplicationService service;
+    @MockitoBean private CurrentUserService currentUsers;
+
+    private Applicant ada;
+
+    @BeforeEach
+    void setUp() {
+        ada = new Applicant("Ada Lovelace", "ada@example.com");
+        ReflectionTestUtils.setField(ada, "id", 1L);
+        when(currentUsers.currentApplicant()).thenReturn(ada);
+    }
 
     private ResearchField field(Long id, String name) {
         ResearchField field = new ResearchField(name);
@@ -69,6 +81,7 @@ class ApplicationControllerTest {
     @Test
     void formListsTheResearchFieldsFromTheService() throws Exception {
         when(service.researchFields()).thenReturn(List.of(field(1L, "Machine Learning")));
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/apply"))
                 .andExpect(status().isOk())
@@ -90,10 +103,10 @@ class ApplicationControllerTest {
 
     @Test
     void validSubmissionRedirectsToTheConfirmationPage() throws Exception {
-        Application saved = new Application(new Applicant("Ada Lovelace", "ada@example.com"), null,
+        Application saved = new Application(ada, null,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
         ReflectionTestUtils.setField(saved, "id", 5L);
-        when(service.submit(any(PersonalInfo.class), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
+        when(service.submit(eq(ada), any(PersonalInfo.class), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
                 .thenReturn(saved);
 
         mockMvc.perform(validSubmission())
@@ -111,7 +124,7 @@ class ApplicationControllerTest {
                 .andExpect(model().attributeHasFieldErrors("form", "personalInfo.firstName",
                         "personalInfo.lastName", "personalInfo.email", "desiredFieldId", "professorIds"));
 
-        verify(service, never()).submit(any(), any(), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -121,12 +134,12 @@ class ApplicationControllerTest {
                 .andExpect(view().name("applicant/apply"))
                 .andExpect(model().attributeHasFieldErrors("form", "professorIds"));
 
-        verify(service, never()).submit(any(), any(), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
     }
 
     @Test
     void ruleViolationsFromTheServiceAreShownOnTheForm() throws Exception {
-        when(service.submit(any(), any(), any(), any()))
+        when(service.submit(any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("The application deadline has passed"));
 
         mockMvc.perform(validSubmission())
@@ -138,7 +151,7 @@ class ApplicationControllerTest {
     @Test
     void confirmationShowsTheSubmittedApplication() throws Exception {
         AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
-        Application application = new Application(new Applicant("Ada Lovelace", "ada@example.com"), cycle,
+        Application application = new Application(ada, cycle,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
         application.setDesiredField(field(1L, "Machine Learning"));
         application.addPreferredProfessor(professor(7L, "Alice Chen"));
@@ -160,5 +173,56 @@ class ApplicationControllerTest {
 
         mockMvc.perform(get("/apply/confirmation/99"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void saveDraftCallsTheServiceAndShowsANotice() throws Exception {
+        when(service.saveDraft(eq(ada), any(PersonalInfo.class), any(), any()))
+                .thenReturn(new Application(ada, null,
+                        new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null)));
+        when(service.researchFields()).thenReturn(List.of());
+
+        mockMvc.perform(post("/apply/draft").with(csrf())
+                        .param("personalInfo.firstName", "Ada")
+                        .param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.email", "ada@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("Draft saved")))
+                .andExpect(model().attribute("draftSaved", true));
+
+        verify(service).saveDraft(eq(ada), any(PersonalInfo.class), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void showFormPrefillsTheLoggedInApplicantsDraft() throws Exception {
+        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
+        Application draft = new Application(ada, cycle,
+                new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
+        ResearchField ml = field(1L, "Machine Learning");
+        draft.setDesiredField(ml);
+        draft.addPreferredProfessor(professor(7L, "Alice Chen"));
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        when(service.researchFields()).thenReturn(List.of(ml));
+        when(service.professorsForField(1L)).thenReturn(List.of(professor(7L, "Alice Chen")));
+
+        mockMvc.perform(get("/apply"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("ada@example.com")))
+                .andExpect(content().string(containsString("Alice Chen")));
+    }
+
+    @Test
+    void duplicateSubmissionMessageIsShownOnTheForm() throws Exception {
+        when(service.submit(any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException(
+                        "You already submitted an application for this admission cycle"));
+
+        mockMvc.perform(validSubmission())
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("already submitted")));
     }
 }
