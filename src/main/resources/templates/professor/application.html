@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Application')}"><title>Application</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('professor')}"></header>
+<main class="container">
+    <h1 th:text="${app.personalInfo.firstName} + ' ' + ${app.personalInfo.lastName}">Ada Lovelace</h1>
+    <p class="lead">Your assessment:
+        <span class="status" th:text="${evaluation.submitted} ? 'Submitted' : 'Pending'">Pending</span></p>
+    <p class="notice notice-success" role="status" th:if="${message}" th:text="${message}">Your assessment was submitted.</p>
+    <p class="notice notice-error" role="alert" th:if="${error}" th:text="${error}">Choose a recommendation</p>
+
+    <h2>Personal information</h2>
+    <dl class="details">
+        <dt>Email</dt>
+        <dd th:text="${app.personalInfo.email}">ada@example.com</dd>
+        <dt>Phone number</dt>
+        <dd th:text="${app.personalInfo.phoneNumber} ?: '-'">613-555-0100</dd>
+        <dt>Citizenship</dt>
+        <dd th:text="${app.personalInfo.citizenship} ?: '-'">Canada</dd>
+    </dl>
+
+    <h2>Application</h2>
+    <dl class="details">
+        <dt>Admission cycle</dt>
+        <dd th:text="${app.cycle.name}">Fall 2027</dd>
+        <dt>Submitted</dt>
+        <dd th:text="${#temporals.format(app.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-07 12:00</dd>
+        <dt>Routed to you</dt>
+        <dd th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</dd>
+        <dt>Desired research field</dt>
+        <dd th:text="${app.desiredField} ? ${app.desiredField.name} : '-'">AI</dd>
+        <dt>Preferred professors</dt>
+        <dd>
+            <ul class="plain-list">
+                <li th:each="professor : ${app.preferredProfessors}" th:text="${professor.name}">Alice Chen</li>
+            </ul>
+        </dd>
+    </dl>
+
+    <h2>Documents</h2>
+    <!-- Document links are added by the document download issue (#44). -->
+    <p class="muted">Documents will be listed here.</p>
+
+    <section th:if="${evaluation.submitted}">
+        <h2>Your assessment</h2>
+        <dl class="details">
+            <dt>Recommendation</dt>
+            <dd th:text="${evaluation.recommendation.label}">Recommend, and yes to funding</dd>
+            <dt>Comments</dt>
+            <dd th:text="${evaluation.comments} ?: '-'">Strong candidate.</dd>
+            <dt>Submitted</dt>
+            <dd th:text="${#temporals.format(evaluation.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-21 09:00</dd>
+        </dl>
+    </section>
+
+    <section th:unless="${evaluation.submitted}" class="admin-action">
+        <h2>Your assessment</h2>
+        <form th:action="@{/professor/applications/{id}/assessment(id=${app.id})}" method="post"
+              onsubmit="return confirm('Submit this assessment? You cannot change it afterwards.');">
+            <fieldset>
+                <legend>Recommendation</legend>
+                <ul class="plain-list">
+                    <li th:each="option, stat : ${recommendations}">
+                        <label>
+                            <input type="radio" name="recommendation" th:value="${option.name()}"
+                                   th:checked="${draftRecommendation == option}" th:required="${stat.first}">
+                            <span th:text="${option.label}">Recommend, and yes to funding</span>
+                        </label>
+                    </li>
+                </ul>
+            </fieldset>
+            <p>
+                <label for="comments">Comments (optional)</label><br>
+                <textarea id="comments" name="comments" rows="5" maxlength="2000"
+                          style="width: 100%;" th:text="${draftComments}"></textarea>
+            </p>
+            <p class="muted">Submitting is final. It does not change the application's status.</p>
+            <p><button type="submit">Submit assessment</button></p>
+        </form>
+    </section>
+
+    <p><a th:href="@{/professor/applications}">&larr; Back to assigned applications</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
