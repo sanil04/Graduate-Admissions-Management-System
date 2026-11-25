@@ -43,6 +43,21 @@ class DataSeederTest {
 	}
 
 	@Test
+	@org.springframework.transaction.annotation.Transactional
+	void anInactiveDemoCycleIsKeptWithoutCreatingADuplicateOrReopeningIt() {
+		var cycle = cycles.findByName("Fall 2027").orElseThrow();
+		cycle.setActive(false);
+		cycles.saveAndFlush(cycle);
+
+		seeder.run(null);
+		seeder.run(null);
+
+		assertThat(cycles.count()).isEqualTo(1);
+		assertThat(cycles.findByName("Fall 2027")).get()
+				.extracting(com.sysc4806.gradadmissions.model.AdmissionCycle::isActive).isEqualTo(false);
+	}
+
+	@Test
 	void seededUsersGetBcryptHashedPasswords() {
 		User admin = users.findByEmail(DataSeeder.ADMIN_EMAIL).orElseThrow();
 		User professor = users.findByEmail("achen@gradadmissions.local").orElseThrow();
