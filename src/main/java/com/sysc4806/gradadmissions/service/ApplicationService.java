@@ -15,13 +15,10 @@ import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.PersonalInfo;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
-import com.sysc4806.gradadmissions.model.User;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
-import com.sysc4806.gradadmissions.repository.ApplicantRepository;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
-import com.sysc4806.gradadmissions.repository.UserRepository;
 
 /**
  * Applicant-facing use cases. Rule violations are reported as
@@ -32,18 +29,13 @@ import com.sysc4806.gradadmissions.repository.UserRepository;
 public class ApplicationService {
 
     private final ApplicationRepository applications;
-    private final ApplicantRepository applicants;
-    private final UserRepository users;
     private final AdmissionCycleRepository cycles;
     private final ResearchFieldRepository fields;
     private final ProfessorRepository professors;
 
-    public ApplicationService(ApplicationRepository applications, ApplicantRepository applicants,
-                              UserRepository users, AdmissionCycleRepository cycles, ResearchFieldRepository fields,
-                              ProfessorRepository professors) {
+    public ApplicationService(ApplicationRepository applications, AdmissionCycleRepository cycles,
+                              ResearchFieldRepository fields, ProfessorRepository professors) {
         this.applications = applications;
-        this.applicants = applicants;
-        this.users = users;
         this.cycles = cycles;
         this.fields = fields;
         this.professors = professors;
@@ -59,21 +51,27 @@ public class ApplicationService {
         return professors.findByResearchFieldsIdOrderByNameAsc(fieldId);
     }
 
+    /** The application, only if it belongs to {@code applicant}; applicants never see each other's. */
     @Transactional(readOnly = true)
-    public Optional<Application> findApplication(Long id) {
-        return applications.findById(id);
+    public Optional<Application> findApplicationOf(Long id, Applicant applicant) {
+        return applications.findById(id)
+                .filter(application -> application.getApplicant().getId().equals(applicant.getId()));
     }
 
-    /** Creates the application in the active cycle and submits it at {@code now}. */
+    /**
+     * Creates {@code applicant}'s application in the active cycle and submits it at {@code now}.
+     * The contact email is always the account's, whatever {@code personalInfo} says.
+     */
     @Transactional
-    public Application submit(PersonalInfo personalInfo, Long fieldId, List<Long> professorIds,
-                              LocalDateTime now) {
+    public Application submit(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
+                              List<Long> professorIds, LocalDateTime now) {
         AdmissionCycle cycle = cycles.findByActiveTrue()
                 .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
         ResearchField field = fields.findById(fieldId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
 
-        Application application = new Application(findOrCreateApplicant(personalInfo), cycle, personalInfo);
+        personalInfo.setEmail(applicant.getEmail());
+        Application application = new Application(applicant, cycle, personalInfo);
         application.setDesiredField(field);
         List<Long> ids = professorIds == null ? List.of() : professorIds;
         for (Long professorId : new LinkedHashSet<>(ids)) {
@@ -87,18 +85,5 @@ public class ApplicationService {
         }
         application.submit(now);
         return applications.save(application);
-    }
-
-    /** Emails are unique across all roles, so an existing applicant is reused. */
-    private Applicant findOrCreateApplicant(PersonalInfo info) {
-        Optional<User> existing = users.findByEmail(info.getEmail());
-        if (existing.isEmpty()) {
-            return applicants.save(
-                    new Applicant(info.getFirstName() + " " + info.getLastName(), info.getEmail()));
-        }
-        if (existing.get() instanceof Applicant applicant) {
-            return applicant;
-        }
-        throw new IllegalArgumentException("That email address belongs to another account");
     }
 }

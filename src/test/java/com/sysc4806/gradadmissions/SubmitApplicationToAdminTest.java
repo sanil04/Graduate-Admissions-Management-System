@@ -44,7 +44,6 @@ class SubmitApplicationToAdminTest {
 						.with(csrf())
 						.param("personalInfo.firstName", "Grace")
 						.param("personalInfo.lastName", "Hopper")
-						.param("personalInfo.email", "grace.e2e@example.com")
 						.param("personalInfo.phoneNumber", "613-555-0100")
 						.param("personalInfo.citizenship", "Canada")
 						.param("desiredFieldId", fieldId.toString())

@@ -91,7 +91,6 @@ class DataSeederTest {
 						.with(csrf())
 						.param("personalInfo.firstName", "Ada")
 						.param("personalInfo.lastName", "Lovelace")
-						.param("personalInfo.email", "ada@example.com")
 						.param("desiredFieldId", fieldId.toString())
 						.param("professorIds", professorId.toString()))
 				.andExpect(redirectedUrlPattern("/apply/confirmation/*"));

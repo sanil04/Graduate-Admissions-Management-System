@@ -3,6 +3,7 @@ package com.sysc4806.gradadmissions.web;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -24,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.sysc4806.gradadmissions.config.SecurityConfig;
+import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
@@ -51,6 +54,13 @@ class HomeControllerTest {
     @MockitoBean private CurrentUserService currentUserService;
     @MockitoBean private NotificationService notificationService;
     @MockitoBean private RegistrationService registrationService;
+
+    /** The apply form is filled in from the logged-in applicant's account. */
+    @BeforeEach
+    void stubTheLoggedInApplicant() {
+        when(currentUserService.currentApplicant())
+                .thenReturn(new Applicant("Applicant User", "applicant@example.com"));
+    }
 
     private static RequestPostProcessor as(String role) {
         return user(role.toLowerCase() + "@example.com").roles(role);

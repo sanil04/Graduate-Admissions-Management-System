@@ -26,8 +26,8 @@
             </p>
             <p>
                 <label for="email">Email</label><br>
-                <input id="email" type="email" th:field="*{personalInfo.email}">
-                <span th:if="${#fields.hasErrors('personalInfo.email')}" th:errors="*{personalInfo.email}">Error</span>
+                <input id="email" type="email" th:field="*{personalInfo.email}" readonly aria-describedby="email-hint">
+                <br><small id="email-hint">This is your account's email and can't be changed here.</small>
             </p>
             <p>
                 <label for="phoneNumber">Phone number (optional)</label><br>

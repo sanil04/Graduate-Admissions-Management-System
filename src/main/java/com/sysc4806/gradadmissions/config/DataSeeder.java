@@ -61,7 +61,7 @@ public class DataSeeder implements ApplicationRunner {
 		seedProfessor("Brian Okonkwo", "bokonkwo@gradadmissions.local", networks, security);
 		seedProfessor("Carla Rossi", "crossi@gradadmissions.local", ai, security);
 
-		// Until applicant registration exists (#37), this is the account used to apply.
+		// A demo account to apply with; new applicants register at /register.
 		seedUser(APPLICANT_EMAIL, APPLICANT_PASSWORD, () -> new Applicant("Demo Applicant", APPLICANT_EMAIL));
 
 		// Applications can only be submitted into an active cycle.

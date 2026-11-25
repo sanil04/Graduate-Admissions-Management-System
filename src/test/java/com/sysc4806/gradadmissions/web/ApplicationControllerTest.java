@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import com.sysc4806.gradadmissions.model.*;
 import com.sysc4806.gradadmissions.config.SecurityConfig;
 import com.sysc4806.gradadmissions.service.ApplicationService;
+import com.sysc4806.gradadmissions.service.CurrentUserService;
 
 @WebMvcTest(ApplicationController.class)
 @Import(SecurityConfig.class)
@@ -44,6 +46,16 @@ class ApplicationControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @MockitoBean private ApplicationService service;
+    @MockitoBean private CurrentUserService currentUsers;
+
+    private Applicant ada;
+
+    @BeforeEach
+    void logInAsAda() {
+        ada = new Applicant("Ada Lovelace", "ada@example.com");
+        ada.setId(1L);
+        when(currentUsers.currentApplicant()).thenReturn(ada);
+    }
 
     private ResearchField field(Long id, String name) {
         ResearchField field = new ResearchField(name);
@@ -93,7 +105,7 @@ class ApplicationControllerTest {
         Application saved = new Application(new Applicant("Ada Lovelace", "ada@example.com"), null,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
         ReflectionTestUtils.setField(saved, "id", 5L);
-        when(service.submit(any(PersonalInfo.class), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
+        when(service.submit(eq(ada), any(PersonalInfo.class), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
                 .thenReturn(saved);
 
         mockMvc.perform(validSubmission())
@@ -109,9 +121,9 @@ class ApplicationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("applicant/apply"))
                 .andExpect(model().attributeHasFieldErrors("form", "personalInfo.firstName",
-                        "personalInfo.lastName", "personalInfo.email", "desiredFieldId", "professorIds"));
+                        "personalInfo.lastName", "desiredFieldId", "professorIds"));
 
-        verify(service, never()).submit(any(), any(), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -121,12 +133,12 @@ class ApplicationControllerTest {
                 .andExpect(view().name("applicant/apply"))
                 .andExpect(model().attributeHasFieldErrors("form", "professorIds"));
 
-        verify(service, never()).submit(any(), any(), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
     }
 
     @Test
     void ruleViolationsFromTheServiceAreShownOnTheForm() throws Exception {
-        when(service.submit(any(), any(), any(), any()))
+        when(service.submit(any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("The application deadline has passed"));
 
         mockMvc.perform(validSubmission())
@@ -143,7 +155,7 @@ class ApplicationControllerTest {
         application.setDesiredField(field(1L, "Machine Learning"));
         application.addPreferredProfessor(professor(7L, "Alice Chen"));
         application.submit(NOW);
-        when(service.findApplication(5L)).thenReturn(Optional.of(application));
+        when(service.findApplicationOf(5L, ada)).thenReturn(Optional.of(application));
 
         mockMvc.perform(get("/apply/confirmation/5"))
                 .andExpect(status().isOk())
@@ -156,7 +168,7 @@ class ApplicationControllerTest {
 
     @Test
     void confirmationForAnUnknownApplicationIsNotFound() throws Exception {
-        when(service.findApplication(99L)).thenReturn(Optional.empty());
+        when(service.findApplicationOf(99L, ada)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/apply/confirmation/99"))
                 .andExpect(status().isNotFound());
