@@ -1,12 +1,16 @@
 package com.sysc4806.gradadmissions.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sysc4806.gradadmissions.model.Evaluation;
+import com.sysc4806.gradadmissions.model.Recommendation;
 import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 
 /**
@@ -35,5 +39,29 @@ public class ProfessorApplicationService {
     @Transactional(readOnly = true)
     public Optional<Evaluation> findAssigned(Long applicationId, Long professorId) {
         return evaluations.findByApplicationIdAndProfessorId(applicationId, professorId);
+    }
+
+    /**
+     * Records the professor's assessment of an application routed to them, through
+     * {@link Evaluation#submitAssessment}. The application's status is not touched: only the admin
+     * changes it.
+     *
+     * @throws NoSuchElementException   if the application doesn't exist or wasn't routed to this professor
+     * @throws IllegalArgumentException if no recommendation was chosen or the comments are too long
+     * @throws IllegalStateException    if the assessment was already submitted, including when a
+     *                                  concurrent request submitted it first
+     */
+    @Transactional
+    public Evaluation submitAssessment(Long applicationId, Long professorId, Recommendation recommendation,
+                                       String comments, LocalDateTime now) {
+        Evaluation evaluation = evaluations.findByApplicationIdAndProfessorId(applicationId, professorId)
+                .orElseThrow(() -> new NoSuchElementException("This application was not routed to you"));
+        evaluation.submitAssessment(recommendation, comments, now);
+        try {
+            // Flush here so a concurrent submit (stale @Version) fails inside this method.
+            return evaluations.saveAndFlush(evaluation);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new IllegalStateException("This assessment has already been submitted", e);
+        }
     }
 }
