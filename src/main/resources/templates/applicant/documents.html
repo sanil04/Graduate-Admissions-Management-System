@@ -8,13 +8,7 @@
     <p>Upload your CV, diploma and grade audit as PDFs, up to 5 MB each. Uploading the same type replaces its previous file.</p>
     <p role="status" th:if="${message}" th:text="${message}">Document uploaded.</p>
     <p role="alert" th:if="${error}" th:text="${error}">Upload failed.</p>
-    <ul>
-        <li th:each="document : ${documents}">
-            <span th:text="${document.type}">CV</span>:
-            <span th:text="${document.fileName}">cv.pdf</span>
-            (<span th:text="${document.size}">1000</span> bytes)
-        </li>
-    </ul>
+    <section th:replace="~{fragments/documents :: downloads(${documents})}"></section>
     <form th:action="@{/apply/{id}/documents(id=${app.id})}" method="post" enctype="multipart/form-data">
         <p><label for="type">Document type</label>
             <select id="type" name="type" required>

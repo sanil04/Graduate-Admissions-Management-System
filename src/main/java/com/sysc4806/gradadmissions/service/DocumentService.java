@@ -16,18 +16,36 @@ import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.Document;
 import com.sysc4806.gradadmissions.model.DocumentType;
+import com.sysc4806.gradadmissions.model.Admin;
+import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.model.User;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.DocumentRepository;
+import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 
 @Service
 public class DocumentService {
 
     private final DocumentRepository documents;
     private final ApplicationRepository applications;
+    private final EvaluationRepository evaluations;
 
-    public DocumentService(DocumentRepository documents, ApplicationRepository applications) {
+    public DocumentService(DocumentRepository documents, ApplicationRepository applications, EvaluationRepository evaluations) {
         this.documents = documents;
         this.applications = applications;
+        this.evaluations = evaluations;
+    }
+
+    @Transactional(readOnly = true)
+    public Document download(Long id, User user) {
+        Document document = documents.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Application application = document.getApplication();
+        boolean allowed = user instanceof Admin
+                || user instanceof Applicant && application.getApplicant().getId().equals(user.getId())
+                || user instanceof Professor && evaluations.existsByApplicationIdAndProfessorId(application.getId(), user.getId());
+        if (!allowed) throw new AccessDeniedException("You cannot download documents for this application");
+        return document;
     }
 
     @Transactional(readOnly = true)

@@ -54,6 +54,7 @@ Seeded data (created on startup if missing): research fields AI, Software Engine
 | `/admin/**` | Admins |
 | `/professor/**` | Professors. A professor can view every profile but edit only their own. |
 | `/applicant`, `/apply/**` | Applicants |
+| `/documents/{id}` | The owning applicant, admins, or professors assigned to the application; other logged-in users get 403 |
 | Anything else | Any logged-in user |
 
 Visitors who aren't logged in are sent to `/login`, then back to the page they asked for. A logged-in user who opens another role's page gets a 403 "Access denied" page. Every POST needs the CSRF token, which Thymeleaf adds to `th:action` forms automatically. In code, `CurrentUserService` returns the logged-in `Admin`, `Professor` or `Applicant`.
@@ -389,7 +390,7 @@ After the admin routes an application, `NotificationService` emails each profess
 
 After saving a draft or submitting an application, applicants can open **Upload application documents**.
 Each application has one CV, diploma and grade audit. Files must be PDFs up to 5 MB; uploading the same type replaces the previous file. The bytes and metadata stay in the database across redeploys.
-Only the owning applicant can list or upload documents at `/apply/{id}/documents`. Downloads are covered by #44.
+Only the owning applicant can list or upload documents at `/apply/{id}/documents`. Download links appear on the applicant, admin and assigned professor application pages. `/documents/{id}` sends the PDF as an attachment and allows only the owning applicant, admins and professors with an evaluation for the application. Other logged-in users get 403. Downloads use `Cache-Control: no-store`.
 
 ## Build and run
 

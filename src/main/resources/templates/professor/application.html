@@ -36,9 +36,7 @@
         </dd>
     </dl>
 
-    <h2>Documents</h2>
-    <!-- Document links are added by the document download issue (#44). -->
-    <p class="muted">Documents will be listed here.</p>
+    <section th:replace="~{fragments/documents :: downloads(${app.documents})}"></section>
 
     <section th:if="${evaluation.submitted}">
         <h2>Your assessment</h2>
