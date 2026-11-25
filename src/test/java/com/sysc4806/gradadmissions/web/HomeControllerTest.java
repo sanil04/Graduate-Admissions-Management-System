@@ -20,8 +20,8 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -36,12 +36,16 @@ import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.NotificationService;
+import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 
-// ApplicationController, AdminController, ProfessorController and AdminProfessorController are
-// included so the link check can follow section pages' links (including Create professor).
+// ApplicationController, AdminController, ProfessorController and ProfessorApplicationController
+// are included so the link check can follow the section pages' links to /apply,
+// /admin/applications, /professor/profiles and /professor/applications.
 @WebMvcTest({HomeController.class, LoginController.class, ApplicationController.class,
-        AdminController.class, ProfessorController.class, AdminProfessorController.class})
+        AdminController.class, ProfessorController.class, ProfessorApplicationController.class,
+        AdminProfessorController.class})
 @Import(SecurityConfig.class)
 class HomeControllerTest {
 
@@ -54,6 +58,7 @@ class HomeControllerTest {
     @MockitoBean private ApplicationService applicationService;
     @MockitoBean private AdminApplicationService adminApplicationService;
     @MockitoBean private ProfessorService professorService;
+    @MockitoBean private ProfessorApplicationService professorApplicationService;
     @MockitoBean private CurrentUserService currentUserService;
     @MockitoBean private NotificationService notificationService;
 
@@ -67,6 +72,14 @@ class HomeControllerTest {
         when(currentUserService.currentApplicant()).thenReturn(applicant);
         when(applicationService.findActiveCycleApplicationForApplicant(any())).thenReturn(Optional.empty());
         when(applicationService.researchFields()).thenReturn(List.of());
+    }
+
+    /** The professor pages ask who is logged in, so the mocked CurrentUserService must answer. */
+    @BeforeEach
+    void loggedInProfessor() {
+        Professor professor = new Professor("Alice Chen", "alice@carleton.ca");
+        professor.setId(1L);
+        when(currentUserService.currentProfessor()).thenReturn(professor);
     }
 
     private static RequestPostProcessor as(String role) {
