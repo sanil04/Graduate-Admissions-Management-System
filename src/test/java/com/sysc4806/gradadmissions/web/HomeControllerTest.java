@@ -39,11 +39,9 @@ import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 
-// ApplicationController, AdminController, ProfessorController and ProfessorApplicationController
-// are included so the link check can follow the section pages' links to /apply,
-// /admin/applications, /professor/profiles and /professor/applications.
+// Include linked page controllers so navigation tests can follow each section's links.
 @WebMvcTest({HomeController.class, LoginController.class, ApplicationController.class,
-        AdminController.class, ProfessorController.class, ProfessorApplicationController.class})
+        AdminController.class, ProfessorController.class, ProfessorApplicationController.class, AdminProfessorController.class})
 @Import(SecurityConfig.class)
 class HomeControllerTest {
 
@@ -62,6 +60,8 @@ class HomeControllerTest {
 
     @BeforeEach
     void stubUsersForSectionLinks() {
+        when(professorService.researchFields()).thenReturn(List.of());
+        when(professorService.findAll()).thenReturn(List.of());
         Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
         ReflectionTestUtils.setField(applicant, "id", 1L);
         when(currentUserService.currentApplicant()).thenReturn(applicant);
