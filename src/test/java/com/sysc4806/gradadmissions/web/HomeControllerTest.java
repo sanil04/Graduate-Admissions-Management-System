@@ -62,7 +62,6 @@ class HomeControllerTest {
         when(applicationService.researchFields()).thenReturn(List.of());
         when(professorService.researchFields()).thenReturn(List.of());
         when(professorService.findAll()).thenReturn(List.of());
-    void stubApplicantForApplyLinks() {
         Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
         ReflectionTestUtils.setField(applicant, "id", 1L);
         when(currentUserService.currentApplicant()).thenReturn(applicant);
