@@ -66,7 +66,7 @@ class AdminControllerTest {
 
     @Test
     void listShowsEachApplicationInTheTable() throws Exception {
-        when(service.submittedApplications()).thenReturn(List.of(submittedApplication()));
+        when(service.submittedApplications(null, null, null, null, null)).thenReturn(List.of(submittedApplication()));
 
         mockMvc.perform(get("/admin/applications"))
                 .andExpect(status().isOk())
@@ -77,17 +77,48 @@ class AdminControllerTest {
                 .andExpect(content().string(containsString("2026-11-07 12:00")))
                 .andExpect(content().string(containsString("SUBMITTED")))
                 .andExpect(content().string(containsString("href=\"/admin/applications/5\"")))
-                .andExpect(content().string(not(containsString("No applications have been submitted yet"))));
+                .andExpect(content().string(not(containsString("No submitted applications match these filters"))));
     }
 
     @Test
     void listShowsAMessageWhenThereAreNoApplications() throws Exception {
-        when(service.submittedApplications()).thenReturn(List.of());
+        when(service.submittedApplications(null, null, null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get("/admin/applications"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("No applications have been submitted yet")))
+                .andExpect(content().string(containsString("No submitted applications match these filters")))
                 .andExpect(content().string(not(containsString("<table"))));
+    }
+
+    @Test
+    void filtersArePassedToTheServiceAndStaySelected() throws Exception {
+        ResearchField field = new ResearchField("Machine Learning");
+        ReflectionTestUtils.setField(field, "id", 3L);
+        when(service.researchFields()).thenReturn(List.of(field));
+        when(service.allProfessors()).thenReturn(List.of(professor(7L, "Alice Chen")));
+        when(service.submittedApplications(3L, 7L, ApplicationStatus.SUBMITTED,
+                NOV_7.toLocalDate(), NOV_7.toLocalDate())).thenReturn(List.of(submittedApplication()));
+
+        String html = mockMvc.perform(get("/admin/applications").param("fieldId", "3")
+                        .param("professorId", "7").param("status", "SUBMITTED")
+                        .param("submittedFrom", "2026-11-07").param("submittedTo", "2026-11-07"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        assertThat(html).containsPattern("value=\"3\"[^>]*selected")
+                .containsPattern("value=\"7\"[^>]*selected")
+                .containsPattern("value=\"SUBMITTED\"[^>]*selected")
+                .contains("value=\"2026-11-07\"", "Ada Lovelace");
+        verify(service).submittedApplications(3L, 7L, ApplicationStatus.SUBMITTED,
+                NOV_7.toLocalDate(), NOV_7.toLocalDate());
+    }
+
+    @Test
+    void invalidDateRangesAndUnknownStatusesReturnBadRequest() throws Exception {
+        when(service.submittedApplications(null, null, null, NOV_7.toLocalDate(), NOV_7.minusDays(1).toLocalDate()))
+                .thenThrow(new IllegalArgumentException("The start date must be on or before the end date"));
+        mockMvc.perform(get("/admin/applications").param("submittedFrom", "2026-11-07")
+                        .param("submittedTo", "2026-11-06")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/admin/applications").param("status", "UNKNOWN")).andExpect(status().isBadRequest());
     }
 
     @Test

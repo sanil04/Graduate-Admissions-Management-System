@@ -91,6 +91,51 @@ class AdminApplicationServiceTest {
     }
 
     @Test
+    void eachFilterAndTheirCombinationSelectOnlyMatchingSubmittedApplications() {
+        Application match = application("Match", NOV_7);
+        Application other = application("Other", NOV_7.plusDays(1));
+        other.setDesiredField(em.persist(new ResearchField("Networks")));
+        other.removePreferredProfessor(alice);
+        other.addPreferredProfessor(professor("Brian"));
+        other.screenOut();
+        application("Draft", null);
+        em.flush();
+
+        assertThat(service.submittedApplications(ml.getId(), null, null, null, null)).containsExactly(match);
+        assertThat(service.submittedApplications(null, alice.getId(), null, null, null)).containsExactly(match);
+        assertThat(service.submittedApplications(null, null, ApplicationStatus.SUBMITTED, null, null)).containsExactly(match);
+        assertThat(service.submittedApplications(null, null, null, NOV_7.toLocalDate(), NOV_7.toLocalDate()))
+                .containsExactly(match);
+        assertThat(service.submittedApplications(null, null, null, NOV_7.plusDays(1).toLocalDate(), null))
+                .containsExactly(other);
+        assertThat(service.submittedApplications(ml.getId(), alice.getId(), ApplicationStatus.SUBMITTED,
+                NOV_7.toLocalDate(), NOV_7.toLocalDate())).containsExactly(match);
+        assertThat(service.submittedApplications(ml.getId(), null, ApplicationStatus.SCREENED_OUT, null, null)).isEmpty();
+        assertThat(service.submittedApplications(null, null, ApplicationStatus.DRAFT, null, null)).isEmpty();
+    }
+
+    @Test
+    void dateRangeIncludesTheWholeEndDateAndRejectsReversedDates() {
+        Application late = application("Late", NOV_7.withHour(23).withMinute(59).withSecond(59));
+        application("Tomorrow", NOV_7.plusDays(1).toLocalDate().atStartOfDay());
+        assertThat(service.submittedApplications(null, null, null, null, NOV_7.toLocalDate())).containsExactly(late);
+        assertThatThrownBy(() -> service.submittedApplications(null, null, null,
+                NOV_7.toLocalDate(), NOV_7.minusDays(1).toLocalDate())).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void multiplePreferredProfessorsDoNotDuplicateAnApplicationOrHideOtherPreferences() {
+        Application match = application("Match", NOV_7);
+        match.addPreferredProfessor(professor("Brian"));
+        em.flush();
+        em.clear();
+        assertThat(service.submittedApplications()).hasSize(1);
+        Application filtered = service.submittedApplications(null, alice.getId(), null, null, null).getFirst();
+        em.clear();
+        assertThat(filtered.getPreferredProfessors()).hasSize(2);
+    }
+
+    @Test
     void findsASubmittedApplicationById() {
         Long id = application("Ada", NOV_7).getId();
 
