@@ -76,6 +76,25 @@ class EvaluationTest {
 	}
 
 	@Test
+	void lineBreaksCountAsOneCharacterLikeTheBrowsersLimit() {
+		// 1990 characters plus 5 line breaks is 1995 as the textarea counts it, but 2000 as CRLF.
+		String fromBrowser = ("x".repeat(397) + "\r\n").repeat(5) + "y".repeat(5);
+
+		evaluation.submitAssessment(Recommendation.RECOMMEND_WITH_FUNDING, fromBrowser, LATER);
+
+		assertThat(evaluation.getComments()).doesNotContain("\r");
+		assertThat(evaluation.getComments()).hasSize(5 * 398 + 5);
+	}
+
+	@Test
+	void commentsOverTheLimitAreStillRejectedAfterLineBreaksAreNormalised() {
+		String tooLong = "x".repeat(Evaluation.MAX_COMMENTS_LENGTH - 1) + "\r\n" + "y";
+
+		assertThatThrownBy(() -> evaluation.submitAssessment(Recommendation.DO_NOT_RECOMMEND, tooLong, LATER))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
 	void everyRecommendationHasALabelForThePages() {
 		for (Recommendation recommendation : Recommendation.values()) {
 			assertThat(recommendation.getLabel()).isNotBlank();

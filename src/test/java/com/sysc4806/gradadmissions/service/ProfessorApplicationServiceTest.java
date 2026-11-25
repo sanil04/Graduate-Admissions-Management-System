@@ -221,6 +221,29 @@ class ProfessorApplicationServiceTest {
     }
 
     @Test
+    void submitAssessmentReportsAConcurrentSubmitAsAlreadySubmitted() {
+        Application application = submittedApplication("Ada");
+        Evaluation evaluation = route(application, alice, NOV_20);
+        em.flush();
+        em.clear();
+        // A second request read the evaluation as unsubmitted, but the first one has since saved it.
+        Evaluation stale = em.find(Evaluation.class, evaluation.getId());
+        em.getEntityManager().detach(stale);
+        service.submitAssessment(application.getId(), alice.getId(), Recommendation.RECOMMEND_WITH_FUNDING, "First", NOV_20);
+        em.flush();
+        em.clear();
+
+        stale.submitAssessment(Recommendation.DO_NOT_RECOMMEND, "Second", NOV_20.plusDays(1));
+
+        assertThatThrownBy(() -> {
+            em.getEntityManager().merge(stale);
+            em.flush();
+        }).isInstanceOf(jakarta.persistence.OptimisticLockException.class);
+        em.clear();
+        assertThat(reload(evaluation).getComments()).isEqualTo("First");
+    }
+
+    @Test
     void submitAssessmentRequiresARecommendation() {
         Application application = submittedApplication("Ada");
         Evaluation evaluation = route(application, alice, NOV_20);
