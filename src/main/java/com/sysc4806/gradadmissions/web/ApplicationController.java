@@ -64,6 +64,7 @@ public class ApplicationController {
                     .toList());
         }
         model.addAttribute("form", form);
+        model.addAttribute("existingApplication", existing.orElse(null));
         return formView(model, selectedFieldId);
     }
 
@@ -99,8 +100,9 @@ public class ApplicationController {
         if (!result.hasErrors()) {
             try {
                 Applicant applicant = currentUsers.currentApplicant();
-                service.saveDraft(applicant, form.getPersonalInfo(), form.getDesiredFieldId(),
+                Application application = service.saveDraft(applicant, form.getPersonalInfo(), form.getDesiredFieldId(),
                         form.getProfessorIds());
+                model.addAttribute("existingApplication", application);
                 model.addAttribute("draftSaved", true);
             } catch (IllegalArgumentException | IllegalStateException e) {
                 result.reject("application.rejected", e.getMessage());
