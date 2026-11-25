@@ -1,6 +1,11 @@
 package com.sysc4806.gradadmissions.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -23,6 +28,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -91,6 +97,48 @@ class ApplicationControllerTest {
     }
 
     @Test
+    void formIsFilledInFromTheLoggedInApplicantsAccount() throws Exception {
+        mockMvc.perform(get("/apply"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("form", hasProperty("personalInfo", allOf(
+                        hasProperty("firstName", is("Ada")),
+                        hasProperty("lastName", is("Lovelace")),
+                        hasProperty("email", is("ada@example.com"))))))
+                .andExpect(content().string(matchesPattern(
+                        "(?s).*<input[^>]*id=\"email\"[^>]*readonly[^>]*value=\"ada@example.com\".*")));
+    }
+
+    @Test
+    void aForgedEmailInTheRequestIsIgnored() throws Exception {
+        Application saved = new Application(ada, null, new PersonalInfo());
+        ReflectionTestUtils.setField(saved, "id", 5L);
+        ArgumentCaptor<PersonalInfo> info = ArgumentCaptor.forClass(PersonalInfo.class);
+        when(service.submit(eq(ada), info.capture(), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
+                .thenReturn(saved);
+
+        mockMvc.perform(post("/apply").with(csrf())
+                        .param("personalInfo.firstName", "Ada")
+                        .param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.email", "mallory@example.com")
+                        .param("desiredFieldId", "1")
+                        .param("professorIds", "2"))
+                .andExpect(redirectedUrl("/apply/confirmation/5"));
+
+        assertThat(info.getValue().getEmail()).isEqualTo("ada@example.com");
+    }
+
+    @Test
+    void theAccountNameIsSplitIntoFirstAndLastName() {
+        PersonalInfo twoParts = ApplicationController.personalInfoFor(new Applicant("Ada King Lovelace", "ada@example.com"));
+        PersonalInfo onePart = ApplicationController.personalInfoFor(new Applicant("Plato", "plato@example.com"));
+
+        assertThat(twoParts.getFirstName()).isEqualTo("Ada");
+        assertThat(twoParts.getLastName()).isEqualTo("King Lovelace");
+        assertThat(onePart.getFirstName()).isEqualTo("Plato");
+        assertThat(onePart.getLastName()).isEmpty();
+    }
+
+    @Test
     void professorsEndpointReturnsTheProfessorsOfTheChosenField() throws Exception {
         when(service.professorsForField(1L)).thenReturn(List.of(professor(7L, "Alice Chen")));
 
@@ -117,6 +165,7 @@ class ApplicationControllerTest {
         mockMvc.perform(post("/apply").with(csrf())
                         .param("personalInfo.firstName", "")
                         .param("personalInfo.lastName", "")
+                        // Ignored, so never a field error: the email comes from the account.
                         .param("personalInfo.email", "not-an-email"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("applicant/apply"))
@@ -167,7 +216,8 @@ class ApplicationControllerTest {
     }
 
     @Test
-    void confirmationForAnUnknownApplicationIsNotFound() throws Exception {
+    void confirmationIsNotFoundUnlessItIsTheApplicantsOwnApplication() throws Exception {
+        // Empty both for an unknown id and for another applicant's application (see ApplicationServiceTest).
         when(service.findApplicationOf(99L, ada)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/apply/confirmation/99"))

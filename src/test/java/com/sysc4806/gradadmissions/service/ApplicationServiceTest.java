@@ -66,6 +66,22 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void submitLinksTheApplicationToTheGivenApplicant() {
+        Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThat(saved.getApplicant().getId()).isEqualTo(ada.getId());
+    }
+
+    @Test
+    void submitUsesTheAccountsEmailNotTheOneOnTheForm() {
+        PersonalInfo otherEmail = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
+
+        Application saved = service.submit(ada, otherEmail, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThat(saved.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
+    }
+
+    @Test
     void submitIgnoresRepeatedProfessors() {
         Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId(), alice.getId()), NOW);
 
@@ -152,5 +168,13 @@ class ApplicationServiceTest {
 
         assertThat(service.findApplicationOf(id, ada)).isPresent();
         assertThat(service.findApplicationOf(999_999L, ada)).isEmpty();
+    }
+
+    @Test
+    void findApplicationOfHidesAnotherApplicantsApplication() {
+        Long id = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW).getId();
+        Applicant grace = em.persist(new Applicant("Grace Hopper", "grace@example.com"));
+
+        assertThat(service.findApplicationOf(id, grace)).isEmpty();
     }
 }
