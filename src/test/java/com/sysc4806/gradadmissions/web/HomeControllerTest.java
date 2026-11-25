@@ -3,6 +3,7 @@ package com.sysc4806.gradadmissions.web;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -11,7 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
@@ -35,12 +35,15 @@ import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.NotificationService;
+import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 
-// ApplicationController, AdminController and ProfessorController are included so the link check
-// can follow the section pages' links to /apply, /admin/applications and /professor/profiles.
+// ApplicationController, AdminController, ProfessorController and ProfessorApplicationController
+// are included so the link check can follow the section pages' links to /apply,
+// /admin/applications, /professor/profiles and /professor/applications.
 @WebMvcTest({HomeController.class, LoginController.class, ApplicationController.class,
-        AdminController.class, ProfessorController.class})
+        AdminController.class, ProfessorController.class, ProfessorApplicationController.class})
 @Import(SecurityConfig.class)
 class HomeControllerTest {
 
@@ -53,16 +56,20 @@ class HomeControllerTest {
     @MockitoBean private ApplicationService applicationService;
     @MockitoBean private AdminApplicationService adminApplicationService;
     @MockitoBean private ProfessorService professorService;
+    @MockitoBean private ProfessorApplicationService professorApplicationService;
     @MockitoBean private CurrentUserService currentUserService;
     @MockitoBean private NotificationService notificationService;
 
     @BeforeEach
-    void stubApplicantForApplyLinks() {
+    void stubUsersForSectionLinks() {
         Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
         ReflectionTestUtils.setField(applicant, "id", 1L);
         when(currentUserService.currentApplicant()).thenReturn(applicant);
         when(applicationService.findActiveCycleApplicationForApplicant(any())).thenReturn(Optional.empty());
         when(applicationService.researchFields()).thenReturn(List.of());
+        Professor professor = new Professor("Alice Chen", "alice@carleton.ca");
+        professor.setId(1L);
+        when(currentUserService.currentProfessor()).thenReturn(professor);
     }
 
     private static RequestPostProcessor as(String role) {
