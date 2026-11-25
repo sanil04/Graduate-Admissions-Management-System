@@ -166,7 +166,7 @@ class ProfessorApplicationControllerTest {
         String html = mockMvc.perform(get("/professor/applications/5"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("action=\"/professor/applications/5/assessment\"")))
-                .andExpect(content().string(containsString("Don't recommend for admission")))
+                .andExpect(content().string(containsString("Don&#39;t recommend for admission")))
                 .andExpect(content().string(containsString("Recommend, but not interested in supervision")))
                 .andExpect(content().string(containsString("Recommend, but no funding")))
                 .andExpect(content().string(containsString("Recommend, and yes to funding")))
