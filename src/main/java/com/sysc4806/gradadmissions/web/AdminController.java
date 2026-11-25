@@ -1,11 +1,14 @@
 package com.sysc4806.gradadmissions.web;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.sysc4806.gradadmissions.model.Application;
+import com.sysc4806.gradadmissions.model.ApplicationStatus;
 import com.sysc4806.gradadmissions.model.Evaluation;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.service.AdminApplicationService;
@@ -36,8 +40,26 @@ public class AdminController {
     }
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("applications", service.submittedApplications());
+    public String list(@RequestParam(required = false) Long fieldId,
+                       @RequestParam(required = false) Long professorId,
+                       @RequestParam(required = false) ApplicationStatus status,
+                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo, Model model) {
+        try {
+            model.addAttribute("applications", service.submittedApplications(
+                    fieldId, professorId, status, submittedFrom, submittedTo));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+        model.addAttribute("fields", service.researchFields());
+        model.addAttribute("professors", service.allProfessors());
+        model.addAttribute("statuses", Arrays.stream(ApplicationStatus.values())
+                .filter(value -> value != ApplicationStatus.DRAFT).toList());
+        model.addAttribute("fieldId", fieldId);
+        model.addAttribute("professorId", professorId);
+        model.addAttribute("status", status);
+        model.addAttribute("submittedFrom", submittedFrom);
+        model.addAttribute("submittedTo", submittedTo);
         model.addAttribute("notificationStatus", notifications.status());
         return "admin/applications";
     }

@@ -5,12 +5,15 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
 
 
 import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.ApplicationStatus;
 
-public interface ApplicationRepository extends JpaRepository<Application, Long> {
+public interface ApplicationRepository extends JpaRepository<Application, Long>, JpaSpecificationExecutor<Application> {
 
 	List<Application> findByStatusOrderBySubmittedAtAsc(ApplicationStatus status);
 	Optional<Application> findByApplicantIdAndCycleId(Long applicantId, Long cycleId);
@@ -22,4 +25,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 	 */
 	@EntityGraph(attributePaths = {"desiredField", "preferredProfessors"})
 	List<Application> findByStatusNotOrderBySubmittedAtDesc(ApplicationStatus status);
+
+	@EntityGraph(attributePaths = {"desiredField", "preferredProfessors"})
+	@Override
+	List<Application> findAll(Specification<Application> specification, Sort sort);
 }

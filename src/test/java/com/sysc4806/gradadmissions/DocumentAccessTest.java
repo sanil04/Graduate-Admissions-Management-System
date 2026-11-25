@@ -104,9 +104,13 @@ class DocumentAccessTest {
         List<String> emails = List.of(owner.getEmail(), DataSeeder.ADMIN_EMAIL, "achen@gradadmissions.local");
         List<String> roles = List.of("APPLICANT", "ADMIN", "PROFESSOR");
         for (int i = 0; i < paths.size(); i++) {
-            mvc.perform(get(paths.get(i)).with(user(emails.get(i)).roles(roles.get(i))))
+            var response = mvc.perform(get(paths.get(i)).with(user(emails.get(i)).roles(roles.get(i))))
                     .andExpect(status().isOk())
                     .andExpect(content().string(containsString("href=\"/documents/" + documentId + "\"")));
+            if (roles.get(i).equals("PROFESSOR")) {
+                response.andExpect(content().string(containsString(
+                        "action=\"/professor/applications/" + application.getId() + "/assessment\"")));
+            }
         }
     }
 

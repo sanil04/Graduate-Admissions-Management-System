@@ -7,6 +7,8 @@
     <h1 th:text="${app.personalInfo.firstName} + ' ' + ${app.personalInfo.lastName}">Ada Lovelace</h1>
     <p class="lead">Your assessment:
         <span class="status" th:text="${evaluation.submitted} ? 'Submitted' : 'Pending'">Pending</span></p>
+    <p class="notice notice-success" role="status" th:if="${message}" th:text="${message}">Your assessment was submitted.</p>
+    <p class="notice notice-error" role="alert" th:if="${error}" th:text="${error}">Choose a recommendation</p>
 
     <h2>Personal information</h2>
     <dl class="details">
@@ -45,9 +47,36 @@
             <dd th:text="${evaluation.recommendation.label}">Recommend, and yes to funding</dd>
             <dt>Comments</dt>
             <dd th:text="${evaluation.comments} ?: '-'">Strong candidate.</dd>
+            <dt>Submitted</dt>
+            <dd th:text="${#temporals.format(evaluation.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-21 09:00</dd>
         </dl>
     </section>
-    <!-- The assessment form for a pending evaluation is added by the assessment issue (#42). -->
+
+    <section th:unless="${evaluation.submitted}" class="admin-action">
+        <h2>Your assessment</h2>
+        <form th:action="@{/professor/applications/{id}/assessment(id=${app.id})}" method="post"
+              onsubmit="return confirm('Submit this assessment? You cannot change it afterwards.');">
+            <fieldset>
+                <legend>Recommendation</legend>
+                <ul class="plain-list">
+                    <li th:each="option, stat : ${recommendations}">
+                        <label>
+                            <input type="radio" name="recommendation" th:value="${option.name()}"
+                                   th:checked="${draftRecommendation == option}" th:required="${stat.first}">
+                            <span th:text="${option.label}">Recommend, and yes to funding</span>
+                        </label>
+                    </li>
+                </ul>
+            </fieldset>
+            <p>
+                <label for="comments">Comments (optional)</label><br>
+                <textarea id="comments" name="comments" rows="5" maxlength="2000"
+                          style="width: 100%;" th:text="${draftComments}"></textarea>
+            </p>
+            <p class="muted">Submitting is final. It does not change the application's status.</p>
+            <p><button type="submit">Submit assessment</button></p>
+        </form>
+    </section>
 
     <p><a th:href="@{/professor/applications}">&larr; Back to assigned applications</a></p>
 </main>

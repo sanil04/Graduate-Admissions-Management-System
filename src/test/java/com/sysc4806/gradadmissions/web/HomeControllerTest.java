@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
@@ -19,8 +20,8 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -39,9 +40,12 @@ import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 
-// Include linked page controllers so navigation tests can follow each section's links.
+// ApplicationController, AdminController, ProfessorController and ProfessorApplicationController
+// are included so the link check can follow the section pages' links to /apply,
+// /admin/applications, /professor/profiles and /professor/applications.
 @WebMvcTest({HomeController.class, LoginController.class, ApplicationController.class,
-        AdminController.class, ProfessorController.class, ProfessorApplicationController.class, AdminProfessorController.class})
+        AdminController.class, ProfessorController.class, ProfessorApplicationController.class,
+        AdminProfessorController.class})
 @Import(SecurityConfig.class)
 class HomeControllerTest {
 
@@ -59,7 +63,8 @@ class HomeControllerTest {
     @MockitoBean private NotificationService notificationService;
 
     @BeforeEach
-    void stubUsersForSectionLinks() {
+    void stubListsForLinkedPages() {
+        when(applicationService.researchFields()).thenReturn(List.of());
         when(professorService.researchFields()).thenReturn(List.of());
         when(professorService.findAll()).thenReturn(List.of());
         Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
@@ -67,6 +72,11 @@ class HomeControllerTest {
         when(currentUserService.currentApplicant()).thenReturn(applicant);
         when(applicationService.findActiveCycleApplicationForApplicant(any())).thenReturn(Optional.empty());
         when(applicationService.researchFields()).thenReturn(List.of());
+    }
+
+    /** The professor pages ask who is logged in, so the mocked CurrentUserService must answer. */
+    @BeforeEach
+    void loggedInProfessor() {
         Professor professor = new Professor("Alice Chen", "alice@carleton.ca");
         professor.setId(1L);
         when(currentUserService.currentProfessor()).thenReturn(professor);

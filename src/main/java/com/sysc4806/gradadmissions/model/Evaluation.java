@@ -26,6 +26,15 @@ public class Evaluation {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	/**
+	 * Optimistic-lock counter. Two requests that both read the evaluation as unsubmitted can't both
+	 * save it: the second update finds the version changed and fails. The column default lets
+	 * {@code ddl-auto=update} add it to a table that already has rows.
+	 */
+	@Version
+	@Column(nullable = false, columnDefinition = "bigint default 0")
+	private long version;
+
 	@NotNull
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "application_id")
@@ -75,7 +84,10 @@ public class Evaluation {
 		if (recommendation == null) {
 			throw new IllegalArgumentException("Choose a recommendation");
 		}
-		String trimmed = comments == null || comments.isBlank() ? null : comments.strip();
+		// Browsers submit each line break as CRLF but count it as one character in maxlength,
+		// so count (and store) a line break as one character here too.
+		String normalized = comments == null ? null : comments.replace("\r\n", "\n").replace('\r', '\n');
+		String trimmed = normalized == null || normalized.isBlank() ? null : normalized.strip();
 		if (trimmed != null && trimmed.length() > MAX_COMMENTS_LENGTH) {
 			throw new IllegalArgumentException("Comments can be at most " + MAX_COMMENTS_LENGTH + " characters");
 		}

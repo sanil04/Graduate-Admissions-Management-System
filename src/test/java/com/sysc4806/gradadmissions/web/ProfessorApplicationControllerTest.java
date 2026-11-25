@@ -2,15 +2,25 @@ package com.sysc4806.gradadmissions.web;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -145,5 +155,158 @@ class ProfessorApplicationControllerTest {
     @WithMockUser(roles = "ADMIN")
     void adminsCannotOpenTheProfessorPages() throws Exception {
         mockMvc.perform(get("/professor/applications")).andExpect(status().isForbidden());
+    }
+
+    // Submitting an assessment (#42)
+
+    @Test
+    void aPendingApplicationShowsTheAssessmentFormWithTheFourRecommendations() throws Exception {
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluation()));
+
+        String html = mockMvc.perform(get("/professor/applications/5"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("action=\"/professor/applications/5/assessment\"")))
+                .andExpect(content().string(containsString("Don&#39;t recommend for admission")))
+                .andExpect(content().string(containsString("Recommend, but not interested in supervision")))
+                .andExpect(content().string(containsString("Recommend, but no funding")))
+                .andExpect(content().string(containsString("Recommend, and yes to funding")))
+                .andExpect(content().string(containsString("name=\"comments\"")))
+                .andReturn().getResponse().getContentAsString();
+
+        org.assertj.core.api.Assertions.assertThat(html.split("type=\"radio\"", -1)).hasSize(5);
+        org.assertj.core.api.Assertions.assertThat(html)
+                .contains("value=\"DO_NOT_RECOMMEND\"", "value=\"RECOMMEND_NO_SUPERVISION\"",
+                        "value=\"RECOMMEND_NO_FUNDING\"", "value=\"RECOMMEND_WITH_FUNDING\"");
+    }
+
+    @Test
+    void aSubmittedAssessmentIsReadOnlyWithNoForm() throws Exception {
+        Evaluation evaluation = evaluation();
+        evaluation.submitAssessment(Recommendation.RECOMMEND_WITH_FUNDING, "Strong candidate.", NOV_20.plusDays(1));
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluation));
+
+        mockMvc.perform(get("/professor/applications/5"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Recommend, and yes to funding")))
+                .andExpect(content().string(containsString("Strong candidate.")))
+                .andExpect(content().string(containsString("2026-11-21 09:00")))
+                .andExpect(content().string(not(containsString("/assessment"))))
+                .andExpect(content().string(not(containsString("type=\"radio\""))))
+                .andExpect(content().string(not(containsString("<textarea"))));
+    }
+
+    @Test
+    void submittingSavesTheAssessmentAndRedirectsBackToThePage() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "RECOMMEND_WITH_FUNDING")
+                        .param("comments", "Strong candidate."))
+                .andExpect(redirectedUrl("/professor/applications/5"))
+                .andExpect(flash().attribute("message", "Your assessment was submitted."))
+                .andExpect(flash().attributeCount(1));
+        verify(service).submitAssessment(eq(5L), eq(7L), eq(Recommendation.RECOMMEND_WITH_FUNDING),
+                eq("Strong candidate."), any());
+    }
+
+    @Test
+    void commentsAreOptional() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(redirectedUrl("/professor/applications/5"))
+                .andExpect(flash().attribute("message", "Your assessment was submitted."));
+        verify(service).submitAssessment(eq(5L), eq(7L), eq(Recommendation.DO_NOT_RECOMMEND), isNull(), any());
+    }
+
+    @Test
+    void submittingWithoutARecommendationShowsAnErrorAndKeepsTheComments() throws Exception {
+        when(service.submitAssessment(eq(5L), eq(7L), isNull(), any(), any()))
+                .thenThrow(new IllegalArgumentException("Choose a recommendation"));
+
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf()).param("comments", "Half written"))
+                .andExpect(redirectedUrl("/professor/applications/5"))
+                .andExpect(flash().attribute("error", "Choose a recommendation"))
+                .andExpect(flash().attribute("draftComments", "Half written"))
+                .andExpect(flash().attributeCount(2));
+    }
+
+    @Test
+    void submittingTwiceShowsTheErrorInsteadOfOverwriting() throws Exception {
+        when(service.submitAssessment(eq(5L), eq(7L), any(), any(), any()))
+                .thenThrow(new IllegalStateException("This assessment has already been submitted"));
+
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(redirectedUrl("/professor/applications/5"))
+                .andExpect(flash().attribute("error", "This assessment has already been submitted"));
+    }
+
+    @Test
+    void submittingForAnApplicationNotRoutedToTheProfessorIsNotFound() throws Exception {
+        when(service.submitAssessment(eq(5L), eq(7L), any(), any(), any()))
+                .thenThrow(new NoSuchElementException("This application was not routed to you"));
+
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anUnknownRecommendationIsABadRequest() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "SURE_WHY_NOT"))
+                .andExpect(status().isBadRequest());
+        verify(service, never()).submitAssessment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void theErrorAndTheTypedAssessmentAreShownAgainOnThePage() throws Exception {
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluation()));
+
+        String html = mockMvc.perform(get("/professor/applications/5")
+                        .flashAttr("error", "Comments can be at most 2000 characters")
+                        .flashAttr("draftRecommendation", Recommendation.RECOMMEND_NO_FUNDING)
+                        .flashAttr("draftComments", "Half written"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Comments can be at most 2000 characters")))
+                .andExpect(content().string(containsString("Half written")))
+                .andReturn().getResponse().getContentAsString();
+
+        org.assertj.core.api.Assertions.assertThat(html)
+                .containsPattern("value=\"RECOMMEND_NO_FUNDING\"\\s+checked")
+                .doesNotContainPattern("value=\"DO_NOT_RECOMMEND\"\\s+checked");
+    }
+
+    @Test
+    void theSuccessMessageIsShownOnThePage() throws Exception {
+        Evaluation evaluation = evaluation();
+        evaluation.submitAssessment(Recommendation.RECOMMEND_NO_FUNDING, null, NOV_20.plusDays(1));
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluation));
+
+        mockMvc.perform(get("/professor/applications/5").flashAttr("message", "Your assessment was submitted."))
+                .andExpect(content().string(containsString("Your assessment was submitted.")));
+    }
+
+    @Test
+    void submittingWithoutACsrfTokenIsForbidden() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(status().isForbidden());
+        verify(service, never()).submitAssessment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "APPLICANT")
+    void applicantsCannotSubmitAnAssessment() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(status().isForbidden());
+        verify(service, never()).submitAssessment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminsCannotSubmitAnAssessment() throws Exception {
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND"))
+                .andExpect(status().isForbidden());
+        verify(service, never()).submitAssessment(any(), any(), any(), any(), any());
     }
 }
