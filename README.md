@@ -166,6 +166,7 @@ classDiagram
         submit(LocalDateTime)
         startReview()
         screenOut()
+        isDocumentsEditable() boolean
     }
 
     class PersonalInfo {
@@ -387,9 +388,10 @@ After the admin routes an application, `NotificationService` emails each profess
 
 ## Application document uploads
 
-After saving a draft or submitting an application, applicants can open **Upload application documents**.
-Each application has one CV, diploma and grade audit. Files must be PDFs up to 5 MB; uploading the same type replaces the previous file. The bytes and metadata stay in the database across redeploys.
+After saving a draft, applicants can open **Application documents** to upload their files before submitting.
+Each application has one CV, diploma and grade audit. Files must be PDFs up to 5 MB; uploading the same type replaces the previous file. Documents become read-only when the application is submitted, and the upload form is hidden. The bytes and metadata stay in the database across redeploys.
 Only the owning applicant can list or upload documents at `/apply/{id}/documents`. Downloads are covered by #44.
+Oversized uploads get a 413 response with the size limit. Simultaneous first uploads keep one file and show a retry message for the conflicting upload.
 
 ## Build and run
 

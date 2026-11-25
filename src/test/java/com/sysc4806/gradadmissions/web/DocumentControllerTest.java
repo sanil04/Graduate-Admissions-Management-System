@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -53,6 +54,31 @@ class DocumentControllerTest {
                 .andExpect(content().string(containsString("cv.pdf")))
                 .andExpect(content().string(containsString("multipart/form-data")))
                 .andExpect(content().string(containsString("/apply/5/documents")));
+    }
+
+    @Test
+    void theUploadFormIsHiddenAfterSubmission() throws Exception {
+        Application application = new Application();
+        ReflectionTestUtils.setField(application, "id", 5L);
+        application.setStatus(ApplicationStatus.UNDER_REVIEW);
+        when(documents.ownedApplication(5L, applicant)).thenReturn(application);
+        mvc.perform(get("/apply/5/documents")).andExpect(status().isOk())
+                .andExpect(content().string(containsString("Documents can only be changed while the application is a draft")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("multipart/form-data"))));
+    }
+
+    @Test
+    void lockedApplicationsAndConcurrentUploadsShowFriendlyErrors() throws Exception {
+        doThrow(new IllegalStateException("Documents can only be changed while the application is a draft"))
+                .when(documents).upload(anyLong(), any(), any(), any(), any());
+        mvc.perform(multipart("/apply/5/documents").file(pdf).param("type", "CV").with(csrf()))
+                .andExpect(redirectedUrl("/apply/5/documents"))
+                .andExpect(flash().attribute("error", "Documents can only be changed while the application is a draft"));
+        doThrow(new DataIntegrityViolationException("duplicate document"))
+                .when(documents).upload(anyLong(), any(), any(), any(), any());
+        mvc.perform(multipart("/apply/5/documents").file(pdf).param("type", "CV").with(csrf()))
+                .andExpect(redirectedUrl("/apply/5/documents"))
+                .andExpect(flash().attribute("error", "Another upload finished at the same time. Please try again."));
     }
 
     @Test

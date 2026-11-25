@@ -215,6 +215,38 @@ class ApplicationControllerTest {
     }
 
     @Test
+    void uploadLinkSurvivesValidationErrorsOnBothDraftAndSubmit() throws Exception {
+        Application draft = new Application();
+        ReflectionTestUtils.setField(draft, "id", 5L);
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        for (String endpoint : List.of("/apply", "/apply/draft")) {
+            mockMvc.perform(post(endpoint).with(csrf()).param("personalInfo.email", "not-an-email"))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attribute("existingApplication", draft))
+                    .andExpect(content().string(containsString("href=\"/apply/5/documents\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Save a draft to upload documents"))));
+        }
+    }
+
+    @Test
+    void uploadLinkSurvivesServiceErrorsOnBothDraftAndSubmit() throws Exception {
+        Application draft = new Application();
+        ReflectionTestUtils.setField(draft, "id", 5L);
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        when(service.saveDraft(any(), any(), any(), any())).thenThrow(new IllegalArgumentException("Unknown research field"));
+        when(service.submit(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("The application deadline has passed"));
+        for (String endpoint : List.of("/apply", "/apply/draft")) {
+            mockMvc.perform(post(endpoint).with(csrf())
+                            .param("personalInfo.firstName", "Ada").param("personalInfo.lastName", "Lovelace")
+                            .param("personalInfo.email", "ada@example.com").param("desiredFieldId", "1").param("professorIds", "7"))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attribute("existingApplication", draft))
+                    .andExpect(content().string(containsString("href=\"/apply/5/documents\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Save a draft to upload documents"))));
+        }
+    }
+
+    @Test
     void duplicateSubmissionMessageIsShownOnTheForm() throws Exception {
         when(service.submit(any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException(

@@ -3,10 +3,10 @@ package com.sysc4806.gradadmissions.web;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -41,18 +41,14 @@ public class DocumentController {
         try {
             documents.upload(id, currentUsers.currentApplicant(), type, file, LocalDateTime.now());
             redirect.addFlashAttribute("message", "Document uploaded.");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", "Another upload finished at the same time. Please try again.");
         } catch (IOException e) {
             redirect.addFlashAttribute("error", "The file could not be read. Please try again.");
         }
         return "redirect:/apply/" + id + "/documents";
     }
 
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    @ResponseStatus(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE)
-    @ResponseBody
-    public String uploadTooLarge() {
-        return "Choose a PDF no larger than 5 MB.";
-    }
 }
