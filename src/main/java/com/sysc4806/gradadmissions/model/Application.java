@@ -102,6 +102,10 @@ public class Application {
 		submittedAt = now;
 	}
 
+	public boolean isDocumentsEditable() {
+		return status == ApplicationStatus.DRAFT;
+	}
+
 	/** Whether the admin can still route this application to (more) professors. */
 	public boolean isRoutable() {
 		return status == ApplicationStatus.SUBMITTED || status == ApplicationStatus.UNDER_REVIEW;

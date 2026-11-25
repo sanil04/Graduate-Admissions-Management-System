@@ -111,6 +111,19 @@ class DocumentServiceTest {
     }
 
     @Test
+    void submittedAndDecidedApplicationsKeepTheirOriginalDocuments() throws Exception {
+        service.upload(application.getId(), applicant, DocumentType.CV, pdf("original.pdf"), NOW);
+        for (ApplicationStatus status : ApplicationStatus.values()) {
+            if (status == ApplicationStatus.DRAFT) continue;
+            application.setStatus(status);
+            assertThatThrownBy(() -> service.upload(application.getId(), applicant, DocumentType.CV, pdf("replacement.pdf"), NOW))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("draft");
+            assertThat(documents.findByApplicationIdAndType(application.getId(), DocumentType.CV)).get()
+                    .extracting(Document::getFileName).isEqualTo("original.pdf");
+        }
+    }
+
+    @Test
     void databaseRejectsTwoDocumentsOfTheSameTypeForAnApplication() throws Exception {
         service.upload(application.getId(), applicant, DocumentType.CV, pdf("first.pdf"), NOW);
         Document duplicate = new Document(application, DocumentType.CV);

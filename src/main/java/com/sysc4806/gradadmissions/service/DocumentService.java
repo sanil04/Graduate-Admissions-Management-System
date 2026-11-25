@@ -68,6 +68,9 @@ public class DocumentService {
     public Document upload(Long applicationId, Applicant applicant, DocumentType type,
                            MultipartFile file, LocalDateTime now) throws IOException {
         Application application = ownedApplication(applicationId, applicant);
+        if (!application.isDocumentsEditable()) {
+            throw new IllegalStateException("Documents can only be changed while the application is a draft");
+        }
         if (type == null) throw new IllegalArgumentException("Choose a document type");
         if (file == null || file.isEmpty() || file.getSize() > Document.MAX_SIZE) {
             throw new IllegalArgumentException("Choose a PDF no larger than 5 MB");

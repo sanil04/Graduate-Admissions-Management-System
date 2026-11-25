@@ -53,12 +53,12 @@ class DocumentAccessTest {
         Professor brian = (Professor) users.findByEmail("bokonkwo@gradadmissions.local").orElseThrow();
         application.addPreferredProfessor(brian);
         LocalDateTime now = LocalDateTime.of(2026, 11, 25, 12, 0);
-        application.submit(now);
         applications.save(application);
-        Professor alice = (Professor) users.findByEmail("achen@gradadmissions.local").orElseThrow();
-        evaluations.save(new Evaluation(application, alice, now));
         documentId = documents.upload(application.getId(), owner, DocumentType.CV,
                 new MockMultipartFile("file", "cv.pdf", "application/pdf", PDF), now).getId();
+        application.submit(now);
+        Professor alice = (Professor) users.findByEmail("achen@gradadmissions.local").orElseThrow();
+        evaluations.save(new Evaluation(application, alice, now));
         em.flush();
         em.clear();
     }
