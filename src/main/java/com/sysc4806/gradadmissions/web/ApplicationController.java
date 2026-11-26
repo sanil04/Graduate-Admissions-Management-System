@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.groups.Default;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -113,6 +114,9 @@ public class ApplicationController {
     public String confirmation(@PathVariable Long id, Model model) {
         Application application = service.findApplication(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!application.getApplicant().getId().equals(currentUsers.currentApplicant().getId())) {
+            throw new AccessDeniedException("You can only view your own application");
+        }
         // Not "application": that name is reserved in Thymeleaf (the servlet context) and would be null.
         model.addAttribute("app", application);
         return "applicant/confirmation";

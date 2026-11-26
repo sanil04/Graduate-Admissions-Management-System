@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="downloads(documents)">
+    <h2>Documents</h2>
+    <p th:if="${#lists.isEmpty(documents)}">No documents uploaded yet.</p>
+    <ul>
+        <li th:each="document : ${documents}">
+            <span th:text="${document.type}">CV</span>:
+            <a th:href="@{/documents/{id}(id=${document.id})}" th:text="${document.fileName}">cv.pdf</a>
+            (<span th:text="${document.size}">1000</span> bytes)
+        </li>
+    </ul>
+</section>
+</body>
+</html>
