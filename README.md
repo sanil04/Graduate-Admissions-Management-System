@@ -44,7 +44,7 @@ The full review loop works end to end in production, behind a login (see [Demo l
 | `/professor/applications` | Professor | Applications routed to you; open one to read it, download its documents and submit your assessment |
 | `/apply` | Applicant | Application form for the logged-in applicant: personal info (name and email filled in from the account; the email can't be changed), a research field, and 1-3 professors (the list is filtered by the chosen field). **Save draft** keeps it to finish later; one application per cycle |
 | `/apply/{id}/documents` | Applicant | Upload your CV, diploma and grade audit (PDF, up to 5 MB each) |
-| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting. Only your own application; anyone else's gives 404 |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting. Only your own application; anyone else's gives 403 |
 | `/admin/applications` | Admin | Submitted applications, newest first, filterable by field, professor, status and date. Open one to read it and its documents, route it to professors or screen it out, and see each professor's assessment |
 | `/admin/professors/new` | Admin | Create a professor account with a temporary password |
 
