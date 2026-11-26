@@ -37,13 +37,14 @@ The full review loop works end to end in production, behind a login (see [Demo l
 
 | Page | Who | What it does |
 |---|---|---|
-| `/` | Everyone | Home page: a **Log in** card, or once logged in, a link to your section |
+| `/` | Everyone | Home page: **Log in** and **Create an account** cards, or once logged in, a link to your section |
+| `/register` | Everyone | Applicants create an account: name, email (unique across all accounts) and password. Then they log in |
 | `/login` | Everyone | Log in with email and password. The nav shows who is logged in and a **Log out** button |
 | `/professor/profiles` | Professor | List of professors; open one to view it. On your own profile, **Edit profile** changes your name, email and research fields |
 | `/professor/applications` | Professor | Applications routed to you; open one to read it, download its documents and submit your assessment |
-| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field). **Save draft** keeps it to finish later; one application per cycle |
+| `/apply` | Applicant | Application form for the logged-in applicant: personal info (name and email filled in from the account; the email can't be changed), a research field, and 1-3 professors (the list is filtered by the chosen field). **Save draft** keeps it to finish later; one application per cycle |
 | `/apply/{id}/documents` | Applicant | Upload your CV, diploma and grade audit (PDF, up to 5 MB each) |
-| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting (your own application only) |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting. Only your own application; anyone else's gives 404 |
 | `/admin/applications` | Admin | Submitted applications, newest first, filterable by field, professor, status and date. Open one to read it and its documents, route it to professors or screen it out, and see each professor's assessment |
 | `/admin/professors/new` | Admin | Create a professor account with a temporary password |
 
@@ -93,7 +94,7 @@ Visitors who aren't logged in are sent to `/login`, then back to the page they a
 | #34 | Upload CV, diploma and grade audit | Done |
 | #35 | Seeder fix when the "Fall 2027" cycle is inactive | Done |
 | #36 | Restrict production deploys and secrets to `main` | Done |
-| #37 | Applicant registration | In review (#66) |
+| #37 | Applicant registration; applications linked to the logged-in applicant | Done |
 | #38 | Admin creates professor accounts | Done |
 | #39 | Admin routes an application or screens it out | Done |
 | #40 | Admin filters the application list | Done |
@@ -107,7 +108,7 @@ Visitors who aren't logged in are sent to `/login`, then back to the page they a
 | #47 | Weekly scrum | Ongoing |
 | #48 | Prepare the Milestone 2 demo | In progress |
 
-**Tests:** 235, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
+**Tests:** 254, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
 
 ## Sprint plan
 
@@ -450,7 +451,7 @@ Local runs use an in-memory H2 database, so there's nothing to set up. Data rese
 
 ### Demo logins
 
-Every page except the home page and `/login` needs a login. These accounts are created on startup, locally and in production:
+Every page except the home page, `/login` and `/register` needs a login. These accounts are created on startup, locally and in production:
 
 | Role | Email | Password |
 |---|---|---|
@@ -458,7 +459,9 @@ Every page except the home page and `/login` needs a login. These accounts are c
 | Professor | `achen@gradadmissions.local` (also `bokonkwo@…`, `crossi@…`) | `prof123` |
 | Applicant | `applicant@gradadmissions.local` | `applicant123` |
 
-Passwords are stored as BCrypt hashes in `users.password_hash`. The seeder only sets a password on a seeded account that has none, so it never resets a changed password. Applicants created by the application form before login existed have no password and can't log in. Applicant registration comes in #37.
+Passwords are stored as BCrypt hashes in `users.password_hash`. The seeder only sets a password on a seeded account that has none, so it never resets a changed password. Applicants created by the application form before login existed have no password and can't log in.
+
+New applicants register at `/register` (#37). Their email is stored in lower case, and login ignores case. Professor and admin accounts can't be registered this way.
 
 ## Deployment
 

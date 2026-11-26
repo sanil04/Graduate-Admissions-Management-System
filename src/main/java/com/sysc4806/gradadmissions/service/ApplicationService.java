@@ -69,6 +69,8 @@ public class ApplicationService {
             throw new IllegalStateException(
                     "You already submitted an application for this admission cycle");
         }
+        // The contact email is always the account's, whatever the form sent.
+        personalInfo.setEmail(applicant.getEmail());
         application.setPersonalInfo(personalInfo);
         ResearchField field = null;
         if (fieldId != null) {
@@ -111,6 +113,7 @@ public class ApplicationService {
             throw new IllegalStateException(
                     "You've already submitted an application for this admission cycle");
         }
+        personalInfo.setEmail(applicant.getEmail());
         application.setPersonalInfo(personalInfo);
         application.setDesiredField(field);
         for (Professor previous : List.copyOf(application.getPreferredProfessors())) {

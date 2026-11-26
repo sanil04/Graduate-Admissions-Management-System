@@ -21,7 +21,10 @@ public class AppUserDetailsService implements UserDetailsService {
 	@Override
 	@Transactional(readOnly = true)
 	public UserDetails loadUserByUsername(String email) {
-		return users.findByEmail(email.trim())
+		String trimmed = email.trim();
+		// Exact match first: older accounts may differ only by case; registration stores lower case.
+		return users.findByEmail(trimmed)
+				.or(() -> users.findByEmailIgnoreCase(trimmed))
 				// Users without a password (created before login existed) cannot log in.
 				.filter(user -> user.getPasswordHash() != null)
 				.map(AppUserDetails::new)

@@ -39,11 +39,13 @@ import com.sysc4806.gradadmissions.service.NotificationService;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
+import com.sysc4806.gradadmissions.service.RegistrationService;
 
-// ApplicationController, AdminController, ProfessorController and ProfessorApplicationController
-// are included so the link check can follow the section pages' links to /apply,
-// /admin/applications, /professor/profiles and /professor/applications.
-@WebMvcTest({HomeController.class, LoginController.class, ApplicationController.class,
+// RegistrationController, ApplicationController, AdminController, ProfessorController and
+// ProfessorApplicationController are included so the link check can follow the links to /register,
+// /apply, /admin/applications, /professor/profiles and /professor/applications.
+@WebMvcTest({HomeController.class, LoginController.class, RegistrationController.class,
+        ApplicationController.class,
         AdminController.class, ProfessorController.class, ProfessorApplicationController.class,
         AdminProfessorController.class})
 @Import(SecurityConfig.class)
@@ -61,6 +63,7 @@ class HomeControllerTest {
     @MockitoBean private ProfessorApplicationService professorApplicationService;
     @MockitoBean private CurrentUserService currentUserService;
     @MockitoBean private NotificationService notificationService;
+    @MockitoBean private RegistrationService registrationService;
 
     @BeforeEach
     void stubListsForLinkedPages() {
