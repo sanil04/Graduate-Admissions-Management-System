@@ -37,11 +37,12 @@ Sprint 1's use case works end to end in production: **a professor sets their res
 
 | Page | Who | What it does |
 |---|---|---|
-| `/` | Everyone | Home page: a **Log in** card, or once logged in, a link to your section |
+| `/` | Everyone | Home page: **Log in** and **Create an account** cards, or once logged in, a link to your section |
+| `/register` | Everyone | Applicants create an account: name, email (unique across all accounts) and password. Then they log in |
 | `/login` | Everyone | Log in with email and password. The nav shows who is logged in and a **Log out** button |
 | `/professor/profiles` | Professor | List of professors; open one to view it. On your own profile, **Edit profile** changes your name, email and research fields |
-| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
-| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting |
+| `/apply` | Applicant | Application form for the logged-in applicant: personal info (name and email filled in from the account; the email can't be changed), a research field, and 1-3 professors (the list is filtered by the chosen field) |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting. Only your own application; anyone else's gives 404 |
 | `/admin/applications` | Admin | Table of submitted applications, newest first; open one for the full details |
 
 Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; a demo applicant; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
@@ -86,6 +87,7 @@ Visitors who aren't logged in are sent to `/login`, then back to the page they a
 | Issue | Item | Status |
 |---|---|---|
 | #33 | Login and role-based access with Spring Security | In review |
+| #37 | Applicant registration; applications linked to the logged-in applicant | In review |
 
 **Tests:** 90, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
 
@@ -411,7 +413,7 @@ Local runs use an in-memory H2 database, so there's nothing to set up. Data rese
 
 ### Demo logins
 
-Every page except the home page and `/login` needs a login. These accounts are created on startup, locally and in production:
+Every page except the home page, `/login` and `/register` needs a login. These accounts are created on startup, locally and in production:
 
 | Role | Email | Password |
 |---|---|---|
@@ -419,7 +421,9 @@ Every page except the home page and `/login` needs a login. These accounts are c
 | Professor | `achen@gradadmissions.local` (also `bokonkwo@…`, `crossi@…`) | `prof123` |
 | Applicant | `applicant@gradadmissions.local` | `applicant123` |
 
-Passwords are stored as BCrypt hashes in `users.password_hash`. The seeder only sets a password on a seeded account that has none, so it never resets a changed password. Applicants created by the application form before login existed have no password and can't log in. Applicant registration comes in #37.
+Passwords are stored as BCrypt hashes in `users.password_hash`. The seeder only sets a password on a seeded account that has none, so it never resets a changed password. Applicants created by the application form before login existed have no password and can't log in.
+
+New applicants register at `/register` (#37). Their email is stored in lower case, and login ignores case. Professor and admin accounts can't be registered this way.
 
 ## Deployment
 

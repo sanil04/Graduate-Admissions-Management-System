@@ -73,6 +73,17 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void submitAndSaveDraftUseTheAccountsEmailNotTheOneOnTheForm() {
+        PersonalInfo otherEmail = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
+        Application draft = service.saveDraft(ada, otherEmail, null, List.of());
+        assertThat(draft.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
+
+        PersonalInfo stillOther = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
+        Application saved = service.submit(ada, stillOther, ml.getId(), List.of(alice.getId()), NOW);
+        assertThat(saved.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
+    }
+
+    @Test
     void submitIgnoresRepeatedProfessors() {
         Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId(), alice.getId()), NOW);
 

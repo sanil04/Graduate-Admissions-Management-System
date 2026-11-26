@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Create an account')}"><title>Create an account</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('login')}"></header>
+<main class="container">
+    <h1>Create an applicant account</h1>
+    <p class="lead">Register to apply to the graduate program. Professor and admin accounts are created by an admin.</p>
+
+    <!-- th:action adds the hidden CSRF token that Spring Security requires on every POST. -->
+    <form th:action="@{/register}" th:object="${form}" method="post">
+        <p>
+            <label for="firstName">First name</label><br>
+            <input id="firstName" type="text" th:field="*{firstName}" autocomplete="given-name" required autofocus>
+            <span th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}">Error</span>
+        </p>
+        <p>
+            <label for="lastName">Last name</label><br>
+            <input id="lastName" type="text" th:field="*{lastName}" autocomplete="family-name" required>
+            <span th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}">Error</span>
+        </p>
+        <p>
+            <label for="email">Email</label><br>
+            <input id="email" type="email" th:field="*{email}" autocomplete="username" required>
+            <span th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Error</span>
+        </p>
+        <!-- Not th:field: that would send the typed password back in the page after an error. -->
+        <p>
+            <label for="password">Password (at least 8 characters)</label><br>
+            <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+            <span th:if="${#fields.hasErrors('password')}" th:errors="*{password}">Error</span>
+        </p>
+        <p>
+            <label for="confirmPassword">Confirm password</label><br>
+            <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required>
+            <span th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}">Error</span>
+        </p>
+        <p><button type="submit">Create account</button></p>
+    </form>
+    <p>Already have an account? <a th:href="@{/login}">Log in</a></p>
+    <p><a th:href="@{/}">&larr; Back to home</a></p>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
