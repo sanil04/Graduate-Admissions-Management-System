@@ -23,15 +23,15 @@ SYSC 4806 term project (topic 7). A Spring MVC web app for graduate admissions:
 | **CI / deploys** | [Actions tab](https://github.com/sanil04/SYSC-4806-Group-Project/actions) |
 | **Weekly scrums** | [Issues titled "Weekly scrum"](https://github.com/sanil04/SYSC-4806-Group-Project/issues?q=is%3Aissue+%22Weekly+scrum%22) |
 
-**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security (form login, BCrypt, role-based URL rules). Spring Mail comes later in Sprint 2.
+**Stack:** Java 21, Spring Boot 4.1 (Spring MVC, Thymeleaf, Spring Data JPA / Hibernate 7, Bean Validation). H2 in memory locally and in tests; Azure Database for PostgreSQL in production. Deployed to Azure App Service by GitHub Actions on every merge to `main`. Spring Security (form login, BCrypt, role-based URL rules). Spring Mail with a Resilience4j circuit breaker for emails to professors.
 
 ---
 
 ## Current status
 
-_Mirrors the Kanban. Last updated at the end of Sprint 1 (Milestone 1, Nov 12)._
+_Mirrors the Kanban. Last updated at the end of Sprint 2 (Milestone 2, Nov 26)._
 
-Sprint 1's use case works end to end in production: **a professor sets their research fields, an applicant applies choosing that professor, and the admin sees the application.** Since #33, every section needs a login (see [Demo logins](#demo-logins)), and each role sees only its own section.
+The full review loop works end to end in production, behind a login (see [Demo logins](#demo-logins)): **an applicant applies with documents (or saves a draft), the admin filters, screens and routes the application, each professor is emailed, opens it and submits an assessment, and the admin sees the recommendations.** Each role sees only its own section. Still to come in Sprint 3: the admin's final decision, deadlines and the applicant status page.
 
 ### What you can do on the live site
 
@@ -40,9 +40,12 @@ Sprint 1's use case works end to end in production: **a professor sets their res
 | `/` | Everyone | Home page: a **Log in** card, or once logged in, a link to your section |
 | `/login` | Everyone | Log in with email and password. The nav shows who is logged in and a **Log out** button |
 | `/professor/profiles` | Professor | List of professors; open one to view it. On your own profile, **Edit profile** changes your name, email and research fields |
-| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field) |
-| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting |
-| `/admin/applications` | Admin | Table of submitted applications, newest first; open one for the full details |
+| `/professor/applications` | Professor | Applications routed to you; open one to read it, download its documents and submit your assessment |
+| `/apply` | Applicant | Application form: personal info, a research field, and 1-3 professors (the list is filtered by the chosen field). **Save draft** keeps it to finish later; one application per cycle |
+| `/apply/{id}/documents` | Applicant | Upload your CV, diploma and grade audit (PDF, up to 5 MB each) |
+| `/apply/confirmation/{id}` | Applicant | Confirmation shown after submitting (your own application only) |
+| `/admin/applications` | Admin | Submitted applications, newest first, filterable by field, professor, status and date. Open one to read it and its documents, route it to professors or screen it out, and see each professor's assessment |
+| `/admin/professors/new` | Admin | Create a professor account with a temporary password |
 
 Seeded data (created on startup if missing): research fields AI, Software Engineering, Networks and Security; an admin; professors Alice Chen, Brian Okonkwo and Carla Rossi; a demo applicant; and the active "Fall 2027" admission cycle (applications accepted until 2027-01-15).
 
@@ -81,13 +84,30 @@ Visitors who aren't logged in are sent to `/login`, then back to the page they a
 | #15 | Weekly scrum | Ongoing |
 | #16 | Prepare the Milestone 1 demo | In progress |
 
-### Sprint 2 issues (in progress)
+### Sprint 2 issues
 
 | Issue | Item | Status |
 |---|---|---|
-| #33 | Login and role-based access with Spring Security | In review |
+| #32 | `Evaluation` model: routing and assessments | Done |
+| #33 | Login and role-based access with Spring Security | Done |
+| #34 | Upload CV, diploma and grade audit | Done |
+| #35 | Seeder fix when the "Fall 2027" cycle is inactive | Done |
+| #36 | Restrict production deploys and secrets to `main` | Done |
+| #37 | Applicant registration | In review (#66) |
+| #38 | Admin creates professor accounts | Done |
+| #39 | Admin routes an application or screens it out | Done |
+| #40 | Admin filters the application list | Done |
+| #41 | Professor: assigned applications and detail | Done |
+| #42 | Professor submits an assessment | Done |
+| #43 | At least one research field on a professor profile | Done |
+| #44 | Protected document downloads | Done |
+| #45 | Drafts and one application per cycle | Done |
+| #46 | End-to-end test: apply, route, evaluate, see the recommendation | In review (#65) |
+| #49 | Email professors behind a circuit breaker | Done |
+| #47 | Weekly scrum | Ongoing |
+| #48 | Prepare the Milestone 2 demo | In progress |
 
-**Tests:** 90, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
+**Tests:** 235, all run by `./mvnw clean package` and by CI on every pull request: repository tests (`@DataJpaTest`), service tests, controller tests (`@WebMvcTest`), and full-application tests (`@SpringBootTest`) that use the real seeded data, including the end-to-end test (#14), real logins with the seeded accounts, and a per-role access check of every section (#33).
 
 ## Sprint plan
 
@@ -95,7 +115,7 @@ Visitors who aren't logged in are sent to `/login`, then back to the page they a
 
 Goal: one use case working end to end, deployed on Azure. Delivered as described in [Current status](#current-status), along with CI on every PR, a deploy on every merge to `main`, and a persistent PostgreSQL database in production.
 
-### Sprint 2: Milestone 2, alpha (Nov 26)
+### Sprint 2: Milestone 2, alpha (Nov 26) — done
 
 Goal: the full review loop for one application, behind a login. An applicant logs in, applies with documents, the admin screens and routes the application, and the professor evaluates it.
 
@@ -117,7 +137,24 @@ Also in Sprint 2, from Sprint 1 reviews:
 - Require at least one research field on a professor profile.
 - Restrict the `production` GitHub environment, and its deploy secrets, to `main`.
 
-Planned for Sprint 3: email notifications to professors, enforced submission and evaluation deadlines, admin side-by-side view of assessments and final decision, and applicant status page.
+Also done: emailing professors when an application is routed to them, behind a circuit breaker (#49, see [Resilience](#resilience-email-behind-a-circuit-breaker)).
+
+### Sprint 3: Milestone 3, final demo (Dec 10)
+
+Goal: the product is complete. The admin compares the professors' assessments and makes the final decision, deadlines are enforced, and the applicant can follow their application to the decision. No links to unbuilt features.
+
+| Issue | Feature | Who |
+|---|---|---|
+| #67 | Admin sees the assessments side by side and admits or rejects | Ahmed |
+| #68 | Enforce the evaluation deadline and show both deadlines | Alexander |
+| #69 | Applicant status page: application, documents and decision | Qurb E |
+| #70 | Fixes from Sprint 2 reviews | Sanil |
+| #71 | End-to-end test: register, apply, route, assess, decide | Sanidhya |
+| #72 | Final UI pass: no dangling links or placeholder text | Sanidhya |
+| #73, #74 | Weekly scrums (Dec 3, Dec 10) | Everyone |
+| #75 | Prepare the final demo and README | Everyone |
+
+New field: the decision date on `Application` (#67), added to the UML and schema in the same PR.
 
 ---
 
@@ -203,6 +240,7 @@ classDiagram
         String comments
         LocalDateTime submittedAt
         LocalDateTime notifiedAt
+        long version
         isSubmitted() boolean
         submitAssessment(Recommendation, String, LocalDateTime)
         markNotified(LocalDateTime)
@@ -359,6 +397,7 @@ erDiagram
         varchar comments "max 2000"
         timestamp submitted_at
         timestamp notified_at "NULL = not emailed"
+        bigint version "optimistic lock"
     }
 ```
 
