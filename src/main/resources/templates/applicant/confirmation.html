@@ -20,6 +20,8 @@
             </ul>
         </dd>
     </dl>
+    <section th:replace="~{fragments/documents :: downloads(${app.documents})}"></section>
+    <p><a th:href="@{/apply/{id}/documents(id=${app.id})}">View application documents</a></p>
     <p><a th:href="@{/}">&larr; Back to home</a></p>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>

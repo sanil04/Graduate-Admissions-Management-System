@@ -65,7 +65,8 @@ public class DataSeeder implements ApplicationRunner {
 		seedUser(APPLICANT_EMAIL, APPLICANT_PASSWORD, () -> new Applicant("Demo Applicant", APPLICANT_EMAIL));
 
 		// Applications can only be submitted into an active cycle.
-		if (admissionCycleRepository.findByActiveTrue().isEmpty()) {
+		if (admissionCycleRepository.findByActiveTrue().isEmpty()
+				&& admissionCycleRepository.findByName("Fall 2027").isEmpty()) {
 			AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
 			cycle.setActive(true);
 			admissionCycleRepository.save(cycle);

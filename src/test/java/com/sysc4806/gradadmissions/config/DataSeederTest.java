@@ -13,8 +13,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.User;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
+import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
@@ -30,6 +32,7 @@ class DataSeederTest {
 	@Autowired private ResearchFieldRepository fields;
 	@Autowired private ProfessorRepository professors;
 	@Autowired private UserRepository users;
+	@Autowired private ApplicationRepository applications;
 	@Autowired private PasswordEncoder passwordEncoder;
 
 	@Test
@@ -37,6 +40,21 @@ class DataSeederTest {
 		seeder.run(null);
 
 		assertThat(cycles.count()).isEqualTo(1);
+	}
+
+	@Test
+	@org.springframework.transaction.annotation.Transactional
+	void anInactiveDemoCycleIsKeptWithoutCreatingADuplicateOrReopeningIt() {
+		var cycle = cycles.findByName("Fall 2027").orElseThrow();
+		cycle.setActive(false);
+		cycles.saveAndFlush(cycle);
+
+		seeder.run(null);
+		seeder.run(null);
+
+		assertThat(cycles.count()).isEqualTo(1);
+		assertThat(cycles.findByName("Fall 2027")).get()
+				.extracting(com.sysc4806.gradadmissions.model.AdmissionCycle::isActive).isEqualTo(false);
 	}
 
 	@Test
@@ -86,11 +104,17 @@ class DataSeederTest {
 		Long fieldId = fields.findByName("AI").orElseThrow().getId();
 		Long professorId = professors.findByResearchFieldsIdOrderByNameAsc(fieldId).get(0).getId();
 
+		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
+		cycles.findByActiveTrue().ifPresent(cycle ->
+				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+						.ifPresent(applications::delete));
+
 		mockMvc.perform(post("/apply")
 						.with(user(DataSeeder.APPLICANT_EMAIL).roles("APPLICANT"))
 						.with(csrf())
 						.param("personalInfo.firstName", "Ada")
 						.param("personalInfo.lastName", "Lovelace")
+						.param("personalInfo.email", DataSeeder.APPLICANT_EMAIL)
 						.param("desiredFieldId", fieldId.toString())
 						.param("professorIds", professorId.toString()))
 				.andExpect(redirectedUrlPattern("/apply/confirmation/*"));

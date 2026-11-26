@@ -2,6 +2,8 @@ package com.sysc4806.gradadmissions.model;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -50,6 +52,9 @@ public class Application {
 			inverseJoinColumns = @JoinColumn(name = "professor_id"))
 	private Set<Professor> preferredProfessors = new LinkedHashSet<>();
 
+	@OneToMany(mappedBy = "application")
+	private List<Document> documents = new ArrayList<>();
+
 	@Setter
 	@NotNull
 	@Enumerated(EnumType.STRING)
@@ -95,6 +100,10 @@ public class Application {
 		}
 		status = ApplicationStatus.SUBMITTED;
 		submittedAt = now;
+	}
+
+	public boolean isDocumentsEditable() {
+		return status == ApplicationStatus.DRAFT;
 	}
 
 	/** Whether the admin can still route this application to (more) professors. */

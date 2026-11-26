@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sysc4806.gradadmissions.model.AdmissionCycle;
 import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Application;
+import com.sysc4806.gradadmissions.model.ApplicationStatus;
 import com.sysc4806.gradadmissions.model.PersonalInfo;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.ResearchField;
@@ -51,17 +52,53 @@ public class ApplicationService {
         return professors.findByResearchFieldsIdOrderByNameAsc(fieldId);
     }
 
-    /** The application, only if it belongs to {@code applicant}; applicants never see each other's. */
     @Transactional(readOnly = true)
-    public Optional<Application> findApplicationOf(Long id, Applicant applicant) {
-        return applications.findById(id)
-                .filter(application -> application.getApplicant().getId().equals(applicant.getId()));
+    public Optional<Application> findApplication(Long id) {
+        return applications.findById(id);
     }
 
-    /**
-     * Creates {@code applicant}'s application in the active cycle and submits it at {@code now}.
-     * The contact email is always the account's, whatever {@code personalInfo} says.
-     */
+    /** Saves a draft application for the active cycle; field and professors are optional. */
+    @Transactional
+    public Application saveDraft(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
+                                 List<Long> professorIds) {
+        AdmissionCycle cycle = cycles.findByActiveTrue()
+                .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
+        Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+                .orElseGet(() -> new Application(applicant, cycle, personalInfo));
+        if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "You already submitted an application for this admission cycle");
+        }
+        // The contact email is always the account's, whatever the form sent.
+        personalInfo.setEmail(applicant.getEmail());
+        application.setPersonalInfo(personalInfo);
+        ResearchField field = null;
+        if (fieldId != null) {
+            field = fields.findById(fieldId)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
+        } else if (professorIds != null && !professorIds.isEmpty()) {
+            throw new IllegalArgumentException("Choose a research field before selecting professors");
+        }
+        application.setDesiredField(field);
+        for (Professor previous : List.copyOf(application.getPreferredProfessors())) {
+            application.removePreferredProfessor(previous);
+        }
+        if (field != null) {
+            List<Long> ids = professorIds == null ? List.of() : professorIds;
+            for (Long professorId : new LinkedHashSet<>(ids)) {
+                Professor professor = professors.findById(professorId)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown professor"));
+                if (!professor.getResearchFields().contains(field)) {
+                    throw new IllegalArgumentException(
+                            professor.getName() + " does not work in " + field.getName());
+                }
+                application.addPreferredProfessor(professor);
+            }
+        }
+        return applications.save(application);
+    }
+
+    /** Creates the application in the active cycle and submits it at {@code now}. */
     @Transactional
     public Application submit(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
                               List<Long> professorIds, LocalDateTime now) {
@@ -70,9 +107,18 @@ public class ApplicationService {
         ResearchField field = fields.findById(fieldId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown research field"));
 
+        Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+                .orElseGet(() -> new Application(applicant, cycle, personalInfo));
+        if (application.getId() != null && application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "You've already submitted an application for this admission cycle");
+        }
         personalInfo.setEmail(applicant.getEmail());
-        Application application = new Application(applicant, cycle, personalInfo);
+        application.setPersonalInfo(personalInfo);
         application.setDesiredField(field);
+        for (Professor previous : List.copyOf(application.getPreferredProfessors())) {
+            application.removePreferredProfessor(previous);
+        }
         List<Long> ids = professorIds == null ? List.of() : professorIds;
         for (Long professorId : new LinkedHashSet<>(ids)) {
             Professor professor = professors.findById(professorId)
@@ -85,5 +131,12 @@ public class ApplicationService {
         }
         application.submit(now);
         return applications.save(application);
+    }
+
+    /** The applicant's application in the active cycle, if any. */
+    @Transactional(readOnly = true)
+    public Optional<Application> findActiveCycleApplicationForApplicant(Applicant applicant) {
+        return cycles.findByActiveTrue()
+                .flatMap(cycle -> applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId()));
     }
 }

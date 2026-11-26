@@ -92,7 +92,7 @@ class RegistrationFlowTest {
 		// Another applicant can't open it, even knowing the id.
 		register("Mallory", "Evil", "mallory.flow@example.com");
 		mockMvc.perform(get(confirmation).session(logIn("mallory.flow@example.com")))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isForbidden());
 	}
 
 	@Test

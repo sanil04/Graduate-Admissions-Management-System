@@ -35,6 +35,8 @@
         </dd>
     </dl>
 
+    <section th:replace="~{fragments/documents :: downloads(${app.documents})}"></section>
+
     <h2>Professor review</h2>
     <p th:if="${#lists.isEmpty(evaluations)}" class="muted">Not routed to any professor yet.</p>
     <div class="table-wrap" th:unless="${#lists.isEmpty(evaluations)}">

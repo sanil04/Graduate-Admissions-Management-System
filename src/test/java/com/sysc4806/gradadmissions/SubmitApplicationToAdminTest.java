@@ -16,9 +16,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.sysc4806.gradadmissions.config.DataSeeder;
+import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
+import com.sysc4806.gradadmissions.repository.ApplicationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
+import com.sysc4806.gradadmissions.repository.UserRepository;
 
 /**
  * End to end: submit an application through the applicant form, then confirm
@@ -32,18 +36,28 @@ class SubmitApplicationToAdminTest {
 	@Autowired private MockMvc mockMvc;
 	@Autowired private ResearchFieldRepository fields;
 	@Autowired private ProfessorRepository professors;
+	@Autowired private UserRepository users;
+	@Autowired private AdmissionCycleRepository cycles;
+	@Autowired private ApplicationRepository applications;
 
 	@Test
 	void submittedApplicationAppearsInAdminList() throws Exception {
 		Long fieldId = fields.findByName("AI").orElseThrow().getId();
 		Professor professor = professors.findByResearchFieldsIdOrderByNameAsc(fieldId).get(0);
 
-		// A name no other test submits, so the admin list check can only match this application.
+		// Other SpringBootTests may already have submitted for the seeded applicant.
+		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
+		cycles.findByActiveTrue().ifPresent(cycle ->
+				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+						.ifPresent(applications::delete));
+
+		// Distinct personal name so the admin list check can only match this submission.
 		mockMvc.perform(post("/apply")
 						.with(user(DataSeeder.APPLICANT_EMAIL).roles("APPLICANT"))
 						.with(csrf())
 						.param("personalInfo.firstName", "Grace")
 						.param("personalInfo.lastName", "Hopper")
+						.param("personalInfo.email", DataSeeder.APPLICANT_EMAIL)
 						.param("personalInfo.phoneNumber", "613-555-0100")
 						.param("personalInfo.citizenship", "Canada")
 						.param("desiredFieldId", fieldId.toString())

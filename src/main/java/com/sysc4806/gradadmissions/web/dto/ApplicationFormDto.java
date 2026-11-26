@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,10 +23,11 @@ public class ApplicationFormDto {
     @NotNull
     private PersonalInfo personalInfo = new PersonalInfo();
 
-    @NotNull(message = "Choose a research field")
-    private Long desiredFieldId;
+    @NotNull(groups = ApplicationSubmit.class, message = "Choose a research field")
+    private Long desiredFieldId; // groups for submit validation
 
-    @NotEmpty(message = "Choose at least one professor")
-    @Size(max = Application.MAX_PREFERRED_PROFESSORS, message = "Choose at most 3 professors")
+    @NotEmpty(groups = ApplicationSubmit.class, message = "Choose at least one professor")
+    @Size(max = Application.MAX_PREFERRED_PROFESSORS, message = "Choose at most 3 professors",
+            groups = {Default.class, ApplicationSubmit.class})
     private List<Long> professorIds = new ArrayList<>();
 }

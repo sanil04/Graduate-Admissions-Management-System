@@ -11,17 +11,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -31,14 +36,18 @@ import com.sysc4806.gradadmissions.service.AdminApplicationService;
 import com.sysc4806.gradadmissions.service.ApplicationService;
 import com.sysc4806.gradadmissions.service.CurrentUserService;
 import com.sysc4806.gradadmissions.service.NotificationService;
+import com.sysc4806.gradadmissions.model.Professor;
+import com.sysc4806.gradadmissions.service.ProfessorApplicationService;
 import com.sysc4806.gradadmissions.service.ProfessorService;
 import com.sysc4806.gradadmissions.service.RegistrationService;
 
-// RegistrationController, ApplicationController, AdminController and ProfessorController are
-// included so the link check can follow the links to /register, /apply, /admin/applications and
-// /professor/profiles.
+// RegistrationController, ApplicationController, AdminController, ProfessorController and
+// ProfessorApplicationController are included so the link check can follow the links to /register,
+// /apply, /admin/applications, /professor/profiles and /professor/applications.
 @WebMvcTest({HomeController.class, LoginController.class, RegistrationController.class,
-        ApplicationController.class, AdminController.class, ProfessorController.class})
+        ApplicationController.class,
+        AdminController.class, ProfessorController.class, ProfessorApplicationController.class,
+        AdminProfessorController.class})
 @Import(SecurityConfig.class)
 class HomeControllerTest {
 
@@ -51,15 +60,29 @@ class HomeControllerTest {
     @MockitoBean private ApplicationService applicationService;
     @MockitoBean private AdminApplicationService adminApplicationService;
     @MockitoBean private ProfessorService professorService;
+    @MockitoBean private ProfessorApplicationService professorApplicationService;
     @MockitoBean private CurrentUserService currentUserService;
     @MockitoBean private NotificationService notificationService;
     @MockitoBean private RegistrationService registrationService;
 
-    /** The apply form is filled in from the logged-in applicant's account. */
     @BeforeEach
-    void stubTheLoggedInApplicant() {
-        when(currentUserService.currentApplicant())
-                .thenReturn(new Applicant("Applicant User", "applicant@example.com"));
+    void stubListsForLinkedPages() {
+        when(applicationService.researchFields()).thenReturn(List.of());
+        when(professorService.researchFields()).thenReturn(List.of());
+        when(professorService.findAll()).thenReturn(List.of());
+        Applicant applicant = new Applicant("Demo Applicant", "applicant@example.com");
+        ReflectionTestUtils.setField(applicant, "id", 1L);
+        when(currentUserService.currentApplicant()).thenReturn(applicant);
+        when(applicationService.findActiveCycleApplicationForApplicant(any())).thenReturn(Optional.empty());
+        when(applicationService.researchFields()).thenReturn(List.of());
+    }
+
+    /** The professor pages ask who is logged in, so the mocked CurrentUserService must answer. */
+    @BeforeEach
+    void loggedInProfessor() {
+        Professor professor = new Professor("Alice Chen", "alice@carleton.ca");
+        professor.setId(1L);
+        when(currentUserService.currentProfessor()).thenReturn(professor);
     }
 
     private static RequestPostProcessor as(String role) {

@@ -5,6 +5,9 @@
 <header th:replace="~{fragments/layout :: header('applicant')}"></header>
 <main class="container">
     <h1>Submit an application</h1>
+    <p th:if="${existingApplication != null}"><a th:href="@{/apply/{id}/documents(id=${existingApplication.id})}">Application documents</a></p>
+    <p th:if="${existingApplication == null}">Save a draft to upload documents before submitting.</p>
+    <p>Documents cannot be changed after submission.</p>
     <p class="lead">Tell us about yourself, then choose your research field and up to three professors.</p>
 
     <form th:action="@{/apply}" th:object="${form}" method="post">
@@ -59,7 +62,15 @@
             </p>
         </fieldset>
 
-        <p><button type="submit">Submit application</button></p>
+        <div class="notice" th:if="${draftSaved}">
+            <p>Draft saved. You can come back and submit later.</p>
+        </div>
+        
+        <p>
+            <button type="submit" th:formaction="@{/apply/draft}">Save draft</button>
+            <button type="submit">Submit application</button>
+        </p>
+        
     </form>
     <p><a th:href="@{/applicant}">&larr; Back to applicant page</a></p>
 </main>

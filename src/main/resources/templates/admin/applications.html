@@ -5,12 +5,42 @@
 <header th:replace="~{fragments/layout :: header('admin')}"></header>
 <main class="container">
     <h1>Submitted applications</h1>
+    <form th:action="@{/admin/applications}" method="get">
+        <p>
+            <label for="fieldId">Research field</label>
+            <select id="fieldId" name="fieldId">
+                <option value="">All fields</option>
+                <option th:each="field : ${fields}" th:value="${field.id}" th:text="${field.name}"
+                        th:selected="${field.id == fieldId}">AI</option>
+            </select>
+            <label for="professorId">Preferred professor</label>
+            <select id="professorId" name="professorId">
+                <option value="">All professors</option>
+                <option th:each="professor : ${professors}" th:value="${professor.id}" th:text="${professor.name}"
+                        th:selected="${professor.id == professorId}">Professor</option>
+            </select>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="">All statuses</option>
+                <option th:each="value : ${statuses}" th:value="${value}" th:text="${value}"
+                        th:selected="${value == status}">SUBMITTED</option>
+            </select>
+        </p>
+        <p>
+            <label for="submittedFrom">Submitted from</label>
+            <input id="submittedFrom" name="submittedFrom" type="date" th:value="${submittedFrom}">
+            <label for="submittedTo">Submitted to</label>
+            <input id="submittedTo" name="submittedTo" type="date" th:value="${submittedTo}">
+            <button type="submit">Apply filters</button>
+            <a th:href="@{/admin/applications}">Clear filters</a>
+        </p>
+    </form>
     <p class="lead" th:text="${#lists.size(applications)} + ' application(s), newest first.'">2 application(s), newest first.</p>
 
     <p class="muted" th:if="${notificationStatus}">Email circuit breaker:
         <span class="status" th:text="${notificationStatus.mailConfigured} ? ${notificationStatus.state} : 'OFF (log only)'">CLOSED</span></p>
 
-    <p class="notice" th:if="${#lists.isEmpty(applications)}">No applications have been submitted yet.</p>
+    <p class="notice" th:if="${#lists.isEmpty(applications)}">No submitted applications match these filters.</p>
 
     <div class="table-wrap" th:unless="${#lists.isEmpty(applications)}">
         <table class="data-table">

@@ -187,4 +187,15 @@ class DomainModelTest {
 		assertThatThrownBy(() -> applications.saveAndFlush(app))
 				.isInstanceOf(ConstraintViolationException.class);
 	}
+
+	@Test
+	void findByApplicantIdAndCycleIdFindsTheApplication() {
+		Application app = applications.save(newApplication(ada));
+		flushAndClear();
+
+		assertThat(applications.findByApplicantIdAndCycleId(ada.getId(), app.getCycle().getId()))
+				.get()
+				.extracting(Application::getId)
+				.isEqualTo(app.getId());
+	}
 }

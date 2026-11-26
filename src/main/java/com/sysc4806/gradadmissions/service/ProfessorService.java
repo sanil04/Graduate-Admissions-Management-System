@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,7 @@ import com.sysc4806.gradadmissions.model.ResearchField;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
+import com.sysc4806.gradadmissions.web.dto.AdminProfessorFormDto;
 import com.sysc4806.gradadmissions.web.dto.ProfessorFormDto;
 
 /** Professor-facing use cases: viewing and editing a profile. */
@@ -21,11 +23,14 @@ public class ProfessorService {
     private final ProfessorRepository professors;
     private final ResearchFieldRepository fields;
     private final UserRepository users;
+    private final PasswordEncoder passwordEncoder;
 
-    public ProfessorService(ProfessorRepository professors, ResearchFieldRepository fields, UserRepository users) {
+    public ProfessorService(ProfessorRepository professors, ResearchFieldRepository fields, UserRepository users,
+                            PasswordEncoder passwordEncoder) {
         this.professors = professors;
         this.fields = fields;
         this.users = users;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -46,11 +51,30 @@ public class ProfessorService {
     /** Message shown when a profile would be left without any research field. */
     public static final String NO_RESEARCH_FIELDS_MESSAGE = "Select at least one research field";
 
-    /** Thrown when an update would leave a professor with no research fields. */
+    /** Thrown when create/update would leave a professor with no research fields. */
     public static class NoResearchFieldsException extends IllegalArgumentException {
         public NoResearchFieldsException() {
             super(NO_RESEARCH_FIELDS_MESSAGE);
         }
+    }
+
+    /** Creates a professor with a temporary password so they can log in. */
+    @Transactional
+    public Professor create(AdminProfessorFormDto form) {
+        if (users.findByEmail(form.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("That email address belongs to another account");
+        }
+        if (form.getResearchFieldIds() == null || form.getResearchFieldIds().isEmpty()) {
+            throw new NoResearchFieldsException();
+        }
+        List<ResearchField> selected = fields.findAllById(form.getResearchFieldIds());
+        if (selected.isEmpty()) {
+            throw new NoResearchFieldsException();
+        }
+        Professor professor = new Professor(form.getName(), form.getEmail());
+        professor.setPasswordHash(passwordEncoder.encode(form.getTemporaryPassword()));
+        professor.getResearchFields().addAll(selected);
+        return professors.save(professor);
     }
 
     /**

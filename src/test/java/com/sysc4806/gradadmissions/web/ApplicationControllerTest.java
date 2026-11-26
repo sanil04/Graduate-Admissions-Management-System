@@ -57,9 +57,9 @@ class ApplicationControllerTest {
     private Applicant ada;
 
     @BeforeEach
-    void logInAsAda() {
+    void setUp() {
         ada = new Applicant("Ada Lovelace", "ada@example.com");
-        ada.setId(1L);
+        ReflectionTestUtils.setField(ada, "id", 1L);
         when(currentUsers.currentApplicant()).thenReturn(ada);
     }
 
@@ -87,6 +87,7 @@ class ApplicationControllerTest {
     @Test
     void formListsTheResearchFieldsFromTheService() throws Exception {
         when(service.researchFields()).thenReturn(List.of(field(1L, "Machine Learning")));
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/apply"))
                 .andExpect(status().isOk())
@@ -98,6 +99,8 @@ class ApplicationControllerTest {
 
     @Test
     void formIsFilledInFromTheLoggedInApplicantsAccount() throws Exception {
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.empty());
+
         mockMvc.perform(get("/apply"))
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("form", hasProperty("personalInfo", allOf(
@@ -106,6 +109,19 @@ class ApplicationControllerTest {
                         hasProperty("email", is("ada@example.com"))))))
                 .andExpect(content().string(matchesPattern(
                         "(?s).*<input[^>]*id=\"email\"[^>]*readonly[^>]*value=\"ada@example.com\".*")));
+    }
+
+    @Test
+    void aDraftIsShownWithTheAccountsEmail() throws Exception {
+        Application draft = new Application(ada, null,
+                new PersonalInfo("Ada", "King", "old@example.com", "613-555-0100", "Canada"));
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+
+        mockMvc.perform(get("/apply"))
+                .andExpect(model().attribute("form", hasProperty("personalInfo", allOf(
+                        hasProperty("lastName", is("King")),
+                        hasProperty("phoneNumber", is("613-555-0100")),
+                        hasProperty("email", is("ada@example.com"))))));
     }
 
     @Test
@@ -150,7 +166,7 @@ class ApplicationControllerTest {
 
     @Test
     void validSubmissionRedirectsToTheConfirmationPage() throws Exception {
-        Application saved = new Application(new Applicant("Ada Lovelace", "ada@example.com"), null,
+        Application saved = new Application(ada, null,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
         ReflectionTestUtils.setField(saved, "id", 5L);
         when(service.submit(eq(ada), any(PersonalInfo.class), eq(1L), eq(List.of(2L)), any(LocalDateTime.class)))
@@ -165,10 +181,10 @@ class ApplicationControllerTest {
         mockMvc.perform(post("/apply").with(csrf())
                         .param("personalInfo.firstName", "")
                         .param("personalInfo.lastName", "")
-                        // Ignored, so never a field error: the email comes from the account.
                         .param("personalInfo.email", "not-an-email"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("applicant/apply"))
+                // The email is ignored and comes from the account, so it never has a field error.
                 .andExpect(model().attributeHasFieldErrors("form", "personalInfo.firstName",
                         "personalInfo.lastName", "desiredFieldId", "professorIds"));
 
@@ -199,12 +215,12 @@ class ApplicationControllerTest {
     @Test
     void confirmationShowsTheSubmittedApplication() throws Exception {
         AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
-        Application application = new Application(new Applicant("Ada Lovelace", "ada@example.com"), cycle,
+        Application application = new Application(ada, cycle,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
         application.setDesiredField(field(1L, "Machine Learning"));
         application.addPreferredProfessor(professor(7L, "Alice Chen"));
         application.submit(NOW);
-        when(service.findApplicationOf(5L, ada)).thenReturn(Optional.of(application));
+        when(service.findApplication(5L)).thenReturn(Optional.of(application));
 
         mockMvc.perform(get("/apply/confirmation/5"))
                 .andExpect(status().isOk())
@@ -216,11 +232,93 @@ class ApplicationControllerTest {
     }
 
     @Test
-    void confirmationIsNotFoundUnlessItIsTheApplicantsOwnApplication() throws Exception {
-        // Empty both for an unknown id and for another applicant's application (see ApplicationServiceTest).
-        when(service.findApplicationOf(99L, ada)).thenReturn(Optional.empty());
+    void confirmationForAnUnknownApplicationIsNotFound() throws Exception {
+        when(service.findApplication(99L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/apply/confirmation/99"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void saveDraftCallsTheServiceAndShowsANotice() throws Exception {
+        when(service.saveDraft(eq(ada), any(PersonalInfo.class), any(), any()))
+                .thenReturn(new Application(ada, null,
+                        new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null)));
+        when(service.researchFields()).thenReturn(List.of());
+
+        mockMvc.perform(post("/apply/draft").with(csrf())
+                        .param("personalInfo.firstName", "Ada")
+                        .param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.email", "ada@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("Draft saved")))
+                .andExpect(model().attribute("draftSaved", true));
+
+        verify(service).saveDraft(eq(ada), any(PersonalInfo.class), any(), any());
+        verify(service, never()).submit(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void showFormPrefillsTheLoggedInApplicantsDraft() throws Exception {
+        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
+        Application draft = new Application(ada, cycle,
+                new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null));
+        ResearchField ml = field(1L, "Machine Learning");
+        draft.setDesiredField(ml);
+        draft.addPreferredProfessor(professor(7L, "Alice Chen"));
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        when(service.researchFields()).thenReturn(List.of(ml));
+        when(service.professorsForField(1L)).thenReturn(List.of(professor(7L, "Alice Chen")));
+
+        mockMvc.perform(get("/apply"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("ada@example.com")))
+                .andExpect(content().string(containsString("Alice Chen")));
+    }
+
+    @Test
+    void uploadLinkSurvivesValidationErrorsOnBothDraftAndSubmit() throws Exception {
+        Application draft = new Application();
+        ReflectionTestUtils.setField(draft, "id", 5L);
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        for (String endpoint : List.of("/apply", "/apply/draft")) {
+            mockMvc.perform(post(endpoint).with(csrf()).param("personalInfo.email", "not-an-email"))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attribute("existingApplication", draft))
+                    .andExpect(content().string(containsString("href=\"/apply/5/documents\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Save a draft to upload documents"))));
+        }
+    }
+
+    @Test
+    void uploadLinkSurvivesServiceErrorsOnBothDraftAndSubmit() throws Exception {
+        Application draft = new Application();
+        ReflectionTestUtils.setField(draft, "id", 5L);
+        when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
+        when(service.saveDraft(any(), any(), any(), any())).thenThrow(new IllegalArgumentException("Unknown research field"));
+        when(service.submit(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("The application deadline has passed"));
+        for (String endpoint : List.of("/apply", "/apply/draft")) {
+            mockMvc.perform(post(endpoint).with(csrf())
+                            .param("personalInfo.firstName", "Ada").param("personalInfo.lastName", "Lovelace")
+                            .param("personalInfo.email", "ada@example.com").param("desiredFieldId", "1").param("professorIds", "7"))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attribute("existingApplication", draft))
+                    .andExpect(content().string(containsString("href=\"/apply/5/documents\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Save a draft to upload documents"))));
+        }
+    }
+
+    @Test
+    void duplicateSubmissionMessageIsShownOnTheForm() throws Exception {
+        when(service.submit(any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException(
+                        "You already submitted an application for this admission cycle"));
+
+        mockMvc.perform(validSubmission())
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("already submitted")));
     }
 }

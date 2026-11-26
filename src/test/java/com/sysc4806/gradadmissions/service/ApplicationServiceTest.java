@@ -66,18 +66,20 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void submitLinksTheApplicationToTheGivenApplicant() {
+    void submitUsesThePassedInApplicant() {
         Application saved = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
 
         assertThat(saved.getApplicant().getId()).isEqualTo(ada.getId());
     }
 
     @Test
-    void submitUsesTheAccountsEmailNotTheOneOnTheForm() {
+    void submitAndSaveDraftUseTheAccountsEmailNotTheOneOnTheForm() {
         PersonalInfo otherEmail = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
+        Application draft = service.saveDraft(ada, otherEmail, null, List.of());
+        assertThat(draft.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
 
-        Application saved = service.submit(ada, otherEmail, ml.getId(), List.of(alice.getId()), NOW);
-
+        PersonalInfo stillOther = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
+        Application saved = service.submit(ada, stillOther, ml.getId(), List.of(alice.getId()), NOW);
         assertThat(saved.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
     }
 
@@ -163,18 +165,50 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void findApplicationOfReturnsTheApplicantsOwnApplication() {
+    void findApplicationReturnsTheSavedApplication() {
         Long id = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW).getId();
 
-        assertThat(service.findApplicationOf(id, ada)).isPresent();
-        assertThat(service.findApplicationOf(999_999L, ada)).isEmpty();
+        assertThat(service.findApplication(id)).isPresent();
+        assertThat(service.findApplication(999_999L)).isEmpty();
     }
 
     @Test
-    void findApplicationOfHidesAnotherApplicantsApplication() {
-        Long id = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW).getId();
-        Applicant grace = em.persist(new Applicant("Grace Hopper", "grace@example.com"));
+    void saveDraftDoesNotRequireFieldOrProfessors() {
+        Application draft = service.saveDraft(ada, info, null, List.of());
 
-        assertThat(service.findApplicationOf(id, grace)).isEmpty();
+        assertThat(draft.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+        assertThat(draft.getDesiredField()).isNull();
+        assertThat(draft.getPreferredProfessors()).isEmpty();
+        assertThat(draft.getSubmittedAt()).isNull();
+    }
+
+    @Test
+    void saveDraftThenSubmitReusesTheSameApplication() {
+        Application draft = service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()));
+
+        Application submitted = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThat(submitted.getId()).isEqualTo(draft.getId());
+        assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(applications.count()).isEqualTo(1);
+    }
+
+    @Test
+    void secondSubmitForTheSameCycleIsRejected() {
+        service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
+
+        assertThatThrownBy(() -> service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already submitted");
+    }
+
+    @Test
+    void findActiveCycleApplicationForApplicantFindsTheDraft() {
+        service.saveDraft(ada, info, null, List.of());
+
+        assertThat(service.findActiveCycleApplicationForApplicant(ada))
+                .get()
+                .extracting(Application::getStatus)
+                .isEqualTo(ApplicationStatus.DRAFT);
     }
 }
