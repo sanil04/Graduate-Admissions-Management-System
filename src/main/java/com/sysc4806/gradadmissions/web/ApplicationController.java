@@ -120,6 +120,8 @@ public class ApplicationController {
 
     /** Fills in the dropdowns; professors are only listed once a field is chosen. */
     private String formView(Model model, Long selectedFieldId) {
+        model.addAttribute("existingApplication", service.findActiveCycleApplicationForApplicant(
+                currentUsers.currentApplicant()).orElse(null));
         model.addAttribute("fields", service.researchFields());
         model.addAttribute("professors",
                 selectedFieldId == null ? List.of() : service.professorsForField(selectedFieldId));
