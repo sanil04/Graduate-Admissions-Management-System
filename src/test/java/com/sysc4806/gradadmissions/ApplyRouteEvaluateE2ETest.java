@@ -20,16 +20,19 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import com.sysc4806.gradadmissions.config.DataSeeder;
 import com.sysc4806.gradadmissions.model.Applicant;
+import com.sysc4806.gradadmissions.model.Application;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.model.Recommendation;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
+import com.sysc4806.gradadmissions.repository.DocumentRepository;
+import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
 
 /**
  * End-to-end test: applicant submits, admin routes, professor assesses, admin sees the
- * recommendation
+ * recommendation (issue 46).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -42,16 +45,16 @@ class ApplyRouteEvaluateE2ETest {
 	@Autowired private UserRepository users;
 	@Autowired private AdmissionCycleRepository cycles;
 	@Autowired private ApplicationRepository applications;
+	@Autowired private EvaluationRepository evaluations;
+	@Autowired private DocumentRepository documents;
 
 	@Test
 	void applyRouteEvaluateThenAdminSeesTheRecommendation() throws Exception {
 		Long fieldId = fields.findByName("AI").orElseThrow().getId();
 		Professor alice = (Professor) users.findByEmail(ALICE).orElseThrow();
 
-		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
-		cycles.findByActiveTrue().ifPresent(cycle ->
-				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
-						.ifPresent(applications::delete));
+		// Shared @SpringBootTest DB: wipe evaluations/documents before deleting the application.
+		clearSeededApplicantApplication();
 
 		MvcResult submitted = mockMvc.perform(post("/apply")
 						.with(user(DataSeeder.APPLICANT_EMAIL).roles("APPLICANT"))
@@ -89,5 +92,22 @@ class ApplyRouteEvaluateE2ETest {
 				.andExpect(content().string(containsString(Recommendation.RECOMMEND_WITH_FUNDING.getLabel())))
 				.andExpect(content().string(containsString("Strong algorithms background.")))
 				.andExpect(content().string(not(containsString(">Pending</span>"))));
+
+		// Don't leave an assessed application for later SpringBootTests to trip over.
+		clearSeededApplicantApplication();
+	}
+
+	/** Deletes the seeded applicant's active-cycle application and its child rows first. */
+	private void clearSeededApplicantApplication() {
+		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
+		cycles.findByActiveTrue().ifPresent(cycle ->
+				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
+						.ifPresent(this::deleteApplicationAndChildren));
+	}
+
+	private void deleteApplicationAndChildren(Application app) {
+		evaluations.findByApplicationIdOrderByAssignedAtAsc(app.getId()).forEach(evaluations::delete);
+		documents.findByApplicationIdOrderByTypeAsc(app.getId()).forEach(documents::delete);
+		applications.delete(app);
 	}
 }

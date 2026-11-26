@@ -17,6 +17,8 @@ import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.User;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
+import com.sysc4806.gradadmissions.repository.DocumentRepository;
+import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
@@ -33,6 +35,8 @@ class DataSeederTest {
 	@Autowired private ProfessorRepository professors;
 	@Autowired private UserRepository users;
 	@Autowired private ApplicationRepository applications;
+	@Autowired private EvaluationRepository evaluations;
+	@Autowired private DocumentRepository documents;
 	@Autowired private PasswordEncoder passwordEncoder;
 
 	@Test
@@ -107,7 +111,13 @@ class DataSeederTest {
 		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
 		cycles.findByActiveTrue().ifPresent(cycle ->
 				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
-						.ifPresent(applications::delete));
+						.ifPresent(app -> {
+							evaluations.findByApplicationIdOrderByAssignedAtAsc(app.getId())
+									.forEach(evaluations::delete);
+							documents.findByApplicationIdOrderByTypeAsc(app.getId())
+									.forEach(documents::delete);
+							applications.delete(app);
+						}));
 
 		mockMvc.perform(post("/apply")
 						.with(user(DataSeeder.APPLICANT_EMAIL).roles("APPLICANT"))

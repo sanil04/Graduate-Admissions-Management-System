@@ -20,6 +20,8 @@ import com.sysc4806.gradadmissions.model.Applicant;
 import com.sysc4806.gradadmissions.model.Professor;
 import com.sysc4806.gradadmissions.repository.AdmissionCycleRepository;
 import com.sysc4806.gradadmissions.repository.ApplicationRepository;
+import com.sysc4806.gradadmissions.repository.DocumentRepository;
+import com.sysc4806.gradadmissions.repository.EvaluationRepository;
 import com.sysc4806.gradadmissions.repository.ProfessorRepository;
 import com.sysc4806.gradadmissions.repository.ResearchFieldRepository;
 import com.sysc4806.gradadmissions.repository.UserRepository;
@@ -39,17 +41,24 @@ class SubmitApplicationToAdminTest {
 	@Autowired private UserRepository users;
 	@Autowired private AdmissionCycleRepository cycles;
 	@Autowired private ApplicationRepository applications;
+	@Autowired private DocumentRepository documents;
+	@Autowired private EvaluationRepository evaluations;
 
 	@Test
 	void submittedApplicationAppearsInAdminList() throws Exception {
 		Long fieldId = fields.findByName("AI").orElseThrow().getId();
 		Professor professor = professors.findByResearchFieldsIdOrderByNameAsc(fieldId).get(0);
 
-		// Other SpringBootTests may already have submitted for the seeded applicant.
 		Applicant applicant = (Applicant) users.findByEmail(DataSeeder.APPLICANT_EMAIL).orElseThrow();
 		cycles.findByActiveTrue().ifPresent(cycle ->
 				applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
-						.ifPresent(applications::delete));
+						.ifPresent(app -> {
+							evaluations.findByApplicationIdOrderByAssignedAtAsc(app.getId())
+									.forEach(evaluations::delete);
+							documents.findByApplicationIdOrderByTypeAsc(app.getId())
+									.forEach(documents::delete);
+							applications.delete(app);
+						}));
 
 		// Distinct personal name so the admin list check can only match this submission.
 		mockMvc.perform(post("/apply")
