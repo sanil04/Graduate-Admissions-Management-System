@@ -271,4 +271,37 @@ class AdminApplicationServiceTest {
         assertThat(service.allProfessors()).extracting(User::getName)
                 .containsExactly("Alice Chen", "Brian Okonkwo", "Zoe Adams");
     }
+
+    @Test
+    void routingIsRejectedAfterTheEvaluationDeadline() {
+        Long id = application("Ada", NOV_7).getId();
+        LocalDateTime dayAfter = cycle.getEvaluationDeadline().plusDays(1).atStartOfDay();
+
+        assertThatThrownBy(() -> service.route(id, List.of(alice.getId()), dayAfter))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The evaluation deadline has passed");
+        assertThat(service.evaluationsFor(id)).isEmpty();
+        assertThat(reload(id).getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    void routingIsAllowedThroughoutTheEvaluationDeadlineDate() {
+        Long id = application("Ada", NOV_7).getId();
+
+        assertThat(service.route(id, List.of(alice.getId()), cycle.getEvaluationDeadline().atTime(23, 59))).hasSize(1);
+    }
+
+    @Test
+    void anApplicationUnderReviewCannotBeRoutedToMoreProfessorsAfterTheDeadline() {
+        Long id = application("Ada", NOV_7).getId();
+        Professor brian = professor("Brian Okonkwo");
+        service.route(id, List.of(alice.getId()), ROUTED);
+        em.flush();
+
+        assertThatThrownBy(() -> service.route(id, List.of(brian.getId()),
+                cycle.getEvaluationDeadline().plusDays(1).atStartOfDay()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The evaluation deadline has passed");
+        assertThat(service.evaluationsFor(id)).hasSize(1);
+    }
 }

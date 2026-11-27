@@ -71,6 +71,7 @@ public class DocumentService {
         if (!application.isDocumentsEditable()) {
             throw new IllegalStateException("Documents can only be changed while the application is a draft");
         }
+        application.getCycle().requireApplicationOpen(now.toLocalDate());
         if (type == null) throw new IllegalArgumentException("Choose a document type");
         if (file == null || file.isEmpty() || file.getSize() > Document.MAX_SIZE) {
             throw new IllegalArgumentException("Choose a PDF no larger than 5 MB");

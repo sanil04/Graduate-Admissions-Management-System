@@ -6,7 +6,8 @@
 <main class="container">
     <h1 th:text="${app.personalInfo.firstName} + ' ' + ${app.personalInfo.lastName}">Ada Lovelace</h1>
     <p class="lead">Your assessment:
-        <span class="status" th:text="${evaluation.submitted} ? 'Submitted' : 'Pending'">Pending</span></p>
+        <span class="status" th:classappend="${evaluation.isOverdue(today)} ? 'status-overdue'"
+              th:text="${evaluation.submitted} ? 'Submitted' : (${evaluation.isOverdue(today)} ? 'Overdue' : 'Pending')">Pending</span></p>
     <p class="notice notice-success" role="status" th:if="${message}" th:text="${message}">Your assessment was submitted.</p>
     <p class="notice notice-error" role="alert" th:if="${error}" th:text="${error}">Choose a recommendation</p>
 
@@ -28,6 +29,8 @@
         <dd th:text="${#temporals.format(app.submittedAt, 'yyyy-MM-dd HH:mm')}">2026-11-07 12:00</dd>
         <dt>Routed to you</dt>
         <dd th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</dd>
+        <dt>Evaluation deadline</dt>
+        <dd th:text="${#temporals.format(app.cycle.evaluationDeadline, 'yyyy-MM-dd')}">2027-03-01</dd>
         <dt>Desired research field</dt>
         <dd th:text="${app.desiredField} ? ${app.desiredField.name} : '-'">AI</dd>
         <dt>Preferred professors</dt>
@@ -54,7 +57,9 @@
 
     <section th:unless="${evaluation.submitted}" class="admin-action">
         <h2>Your assessment</h2>
-        <form th:action="@{/professor/applications/{id}/assessment(id=${app.id})}" method="post"
+        <p class="notice notice-error" th:if="${evaluation.isOverdue(today)}"
+           th:text="'The evaluation deadline (' + ${#temporals.format(app.cycle.evaluationDeadline, 'yyyy-MM-dd')} + ') has passed, so this assessment can no longer be submitted.'">The evaluation deadline has passed.</p>
+        <form th:unless="${evaluation.isOverdue(today)}" th:action="@{/professor/applications/{id}/assessment(id=${app.id})}" method="post"
               onsubmit="return confirm('Submit this assessment? You cannot change it afterwards.');">
             <fieldset>
                 <legend>Recommendation</legend>

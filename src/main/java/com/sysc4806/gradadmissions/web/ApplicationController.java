@@ -122,7 +122,7 @@ public class ApplicationController {
             try {
                 Applicant applicant = currentUsers.currentApplicant();
                 service.saveDraft(applicant, form.getPersonalInfo(), form.getDesiredFieldId(),
-                        form.getProfessorIds());
+                        form.getProfessorIds(), LocalDateTime.now());
                 model.addAttribute("draftSaved", true);
             } catch (IllegalArgumentException | IllegalStateException e) {
                 result.reject("application.rejected", e.getMessage());
@@ -159,6 +159,7 @@ public class ApplicationController {
 
     /** Fills in the dropdowns; professors are only listed once a field is chosen. */
     private String formView(Model model, Long selectedFieldId) {
+        model.addAttribute("activeCycle", service.activeCycle().orElse(null));
         model.addAttribute("existingApplication", service.findActiveCycleApplicationForApplicant(
                 currentUsers.currentApplicant()).orElse(null));
         model.addAttribute("fields", service.researchFields());

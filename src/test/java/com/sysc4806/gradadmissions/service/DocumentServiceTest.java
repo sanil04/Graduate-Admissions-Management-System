@@ -130,4 +130,29 @@ class DocumentServiceTest {
         duplicate.replace("second.pdf", pdf("second.pdf").getBytes(), NOW);
         assertThatThrownBy(() -> documents.saveAndFlush(duplicate)).isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    void uploadIsRejectedAfterTheApplicationDeadline() {
+        LocalDateTime dayAfter = application.getCycle().getApplicationDeadline().plusDays(1).atStartOfDay();
+        assertThatThrownBy(() -> service.upload(application.getId(), applicant, DocumentType.CV, pdf("cv.pdf"), dayAfter))
+                .isInstanceOf(IllegalStateException.class).hasMessage("The application deadline has passed");
+        assertThat(documents.count()).isZero();
+    }
+
+    @Test
+    void uploadIsAllowedThroughoutTheDeadlineDate() throws Exception {
+        LocalDateTime lastMinute = application.getCycle().getApplicationDeadline().atTime(23, 59);
+        service.upload(application.getId(), applicant, DocumentType.CV, pdf("cv.pdf"), lastMinute);
+        assertThat(documents.count()).isEqualTo(1);
+    }
+
+    @Test
+    void aLateUploadCannotReplaceAnExistingDocument() throws Exception {
+        service.upload(application.getId(), applicant, DocumentType.CV, pdf("original.pdf"), NOW);
+        LocalDateTime dayAfter = application.getCycle().getApplicationDeadline().plusDays(1).atStartOfDay();
+        assertThatThrownBy(() -> service.upload(application.getId(), applicant, DocumentType.CV, pdf("late.pdf"), dayAfter))
+                .isInstanceOf(IllegalStateException.class).hasMessage("The application deadline has passed");
+        assertThat(documents.findByApplicationIdAndType(application.getId(), DocumentType.CV)).get()
+                .extracting(Document::getFileName).isEqualTo("original.pdf");
+    }
 }

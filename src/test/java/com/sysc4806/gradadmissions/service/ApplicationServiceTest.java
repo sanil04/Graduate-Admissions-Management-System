@@ -75,7 +75,7 @@ class ApplicationServiceTest {
     @Test
     void submitAndSaveDraftUseTheAccountsEmailNotTheOneOnTheForm() {
         PersonalInfo otherEmail = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
-        Application draft = service.saveDraft(ada, otherEmail, null, List.of());
+        Application draft = service.saveDraft(ada, otherEmail, null, List.of(), NOW);
         assertThat(draft.getPersonalInfo().getEmail()).isEqualTo("ada@example.com");
 
         PersonalInfo stillOther = new PersonalInfo("Ada", "Lovelace", "someone.else@example.com", null, null);
@@ -174,7 +174,7 @@ class ApplicationServiceTest {
 
     @Test
     void saveDraftDoesNotRequireFieldOrProfessors() {
-        Application draft = service.saveDraft(ada, info, null, List.of());
+        Application draft = service.saveDraft(ada, info, null, List.of(), NOW);
 
         assertThat(draft.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
         assertThat(draft.getDesiredField()).isNull();
@@ -184,7 +184,7 @@ class ApplicationServiceTest {
 
     @Test
     void saveDraftThenSubmitReusesTheSameApplication() {
-        Application draft = service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()));
+        Application draft = service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()), NOW);
 
         Application submitted = service.submit(ada, info, ml.getId(), List.of(alice.getId()), NOW);
 
@@ -204,11 +204,52 @@ class ApplicationServiceTest {
 
     @Test
     void findActiveCycleApplicationForApplicantFindsTheDraft() {
-        service.saveDraft(ada, info, null, List.of());
+        service.saveDraft(ada, info, null, List.of(), NOW);
 
         assertThat(service.findActiveCycleApplicationForApplicant(ada))
                 .get()
                 .extracting(Application::getStatus)
                 .isEqualTo(ApplicationStatus.DRAFT);
+    }
+
+    @Test
+    void saveDraftRejectsAfterTheApplicationDeadline() {
+        LocalDateTime dayAfter = cycle.getApplicationDeadline().plusDays(1).atStartOfDay();
+
+        assertThatThrownBy(() -> service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()), dayAfter))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The application deadline has passed");
+        assertThat(applications.count()).isZero();
+    }
+
+    @Test
+    void saveDraftIsAllowedThroughoutTheDeadlineDate() {
+        LocalDateTime lastMinute = cycle.getApplicationDeadline().atTime(23, 59);
+
+        Application draft = service.saveDraft(ada, info, null, List.of(), lastMinute);
+
+        assertThat(draft.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+        assertThat(applications.count()).isEqualTo(1);
+    }
+
+    @Test
+    void anExistingDraftCannotBeChangedAfterTheApplicationDeadline() {
+        Application draft = service.saveDraft(ada, info, null, List.of(), NOW);
+        LocalDateTime dayAfter = cycle.getApplicationDeadline().plusDays(1).atStartOfDay();
+
+        assertThatThrownBy(() -> service.saveDraft(ada, info, ml.getId(), List.of(alice.getId()), dayAfter))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The application deadline has passed");
+        assertThat(applications.findById(draft.getId()).orElseThrow().getDesiredField()).isNull();
+    }
+
+    @Test
+    void activeCycleIsTheOpenCycleOrEmpty() {
+        assertThat(service.activeCycle()).get().extracting(AdmissionCycle::getName).isEqualTo("Fall 2027");
+
+        cycle.setActive(false);
+        em.flush();
+
+        assertThat(service.activeCycle()).isEmpty();
     }
 }

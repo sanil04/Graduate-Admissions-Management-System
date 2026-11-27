@@ -118,4 +118,13 @@ class DocumentControllerTest {
         mvc.perform(multipart("/apply/5/documents").file(pdf).param("type", "CV").with(csrf())).andExpect(status().isForbidden());
         verifyNoInteractions(documents);
     }
+
+    @Test
+    void uploadAfterTheApplicationDeadlineShowsTheError() throws Exception {
+        when(documents.upload(anyLong(), any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException("The application deadline has passed"));
+        mvc.perform(multipart("/apply/5/documents").file(pdf).param("type", "CV").with(csrf()))
+                .andExpect(redirectedUrl("/apply/5/documents"))
+                .andExpect(flash().attribute("error", "The application deadline has passed"));
+    }
 }

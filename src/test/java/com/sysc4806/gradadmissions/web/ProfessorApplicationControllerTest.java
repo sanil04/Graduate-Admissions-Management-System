@@ -59,9 +59,18 @@ class ProfessorApplicationControllerTest {
         when(currentUsers.currentProfessor()).thenReturn(alice);
     }
 
-    /** Ada Lovelace's submitted application (id 5, Machine Learning) routed to Alice. */
+    /** Far enough ahead that the pages never show it as overdue, whenever the tests run. */
+    private static final LocalDate OPEN_DEADLINE = LocalDate.of(2099, 12, 31);
+    /** Long past, but after NOV_7 so the application could still be submitted. */
+    private static final LocalDate PAST_DEADLINE = LocalDate.of(2026, 11, 10);
+
+    /** Ada Lovelace's submitted application (id 5, Machine Learning) routed to Alice; not overdue. */
     private Evaluation evaluation() {
-        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
+        return evaluationDueOn(OPEN_DEADLINE);
+    }
+
+    private Evaluation evaluationDueOn(LocalDate evaluationDeadline) {
+        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2026, 11, 8), evaluationDeadline);
         Application application = new Application(new Applicant("Ada Lovelace", "ada@example.com"), cycle,
                 new PersonalInfo("Ada", "Lovelace", "ada@example.com", "613-555-0100", "Canada"));
         ReflectionTestUtils.setField(application, "id", 5L);
@@ -308,5 +317,77 @@ class ProfessorApplicationControllerTest {
                         .param("recommendation", "DO_NOT_RECOMMEND"))
                 .andExpect(status().isForbidden());
         verify(service, never()).submitAssessment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void listShowsTheEvaluationDeadline() throws Exception {
+        when(service.assignedTo(7L)).thenReturn(List.of(evaluation()));
+
+        mockMvc.perform(get("/professor/applications"))
+                .andExpect(content().string(containsString("Evaluation deadline")))
+                .andExpect(content().string(containsString("2099-12-31")))
+                .andExpect(content().string(not(containsString("Overdue"))));
+    }
+
+    @Test
+    void listMarksAPendingAssessmentPastTheDeadlineAsOverdue() throws Exception {
+        when(service.assignedTo(7L)).thenReturn(List.of(evaluationDueOn(PAST_DEADLINE)));
+
+        mockMvc.perform(get("/professor/applications"))
+                .andExpect(content().string(containsString("Overdue")))
+                .andExpect(content().string(containsString("2026-11-10")))
+                .andExpect(content().string(not(containsString("Pending"))));
+    }
+
+    @Test
+    void listDoesNotMarkASubmittedAssessmentOverdue() throws Exception {
+        Evaluation evaluation = evaluationDueOn(PAST_DEADLINE);
+        evaluation.submitAssessment(Recommendation.RECOMMEND_NO_FUNDING, null, LocalDateTime.of(2026, 11, 9, 9, 0));
+        when(service.assignedTo(7L)).thenReturn(List.of(evaluation));
+
+        mockMvc.perform(get("/professor/applications"))
+                .andExpect(content().string(containsString("Submitted")))
+                .andExpect(content().string(not(containsString("Overdue"))));
+    }
+
+    @Test
+    void detailShowsTheEvaluationDeadlineAndKeepsTheFormOpenBeforeIt() throws Exception {
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluation()));
+
+        mockMvc.perform(get("/professor/applications/5"))
+                .andExpect(content().string(containsString("Evaluation deadline")))
+                .andExpect(content().string(containsString("2099-12-31")))
+                .andExpect(content().string(containsString("<textarea")))
+                .andExpect(content().string(not(containsString("Overdue"))));
+    }
+
+    @Test
+    void detailMarksAnOverdueAssessmentAndHidesTheForm() throws Exception {
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluationDueOn(PAST_DEADLINE)));
+
+        mockMvc.perform(get("/professor/applications/5"))
+                .andExpect(content().string(containsString("Overdue")))
+                .andExpect(content().string(containsString("2026-11-10")))
+                .andExpect(content().string(containsString("can no longer be submitted")))
+                .andExpect(content().string(not(containsString("<textarea"))))
+                .andExpect(content().string(not(containsString("name=\"recommendation\""))));
+    }
+
+    @Test
+    void submittingAfterTheEvaluationDeadlineShowsTheErrorOnThePage() throws Exception {
+        when(service.submitAssessment(eq(5L), eq(7L), any(), any(), any()))
+                .thenThrow(new IllegalStateException("The evaluation deadline has passed"));
+
+        mockMvc.perform(post("/professor/applications/5/assessment").with(csrf())
+                        .param("recommendation", "DO_NOT_RECOMMEND").param("comments", "Late thoughts"))
+                .andExpect(redirectedUrl("/professor/applications/5"))
+                .andExpect(flash().attribute("error", "The evaluation deadline has passed"))
+                .andExpect(flash().attribute("draftComments", "Late thoughts"));
+
+        when(service.findAssigned(5L, 7L)).thenReturn(Optional.of(evaluationDueOn(PAST_DEADLINE)));
+        mockMvc.perform(get("/professor/applications/5").flashAttr("error", "The evaluation deadline has passed"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("role=\"alert\"")))
+                .andExpect(content().string(containsString("The evaluation deadline has passed")));
     }
 }

@@ -305,4 +305,35 @@ class ProfessorApplicationServiceTest {
                 Recommendation.RECOMMEND_WITH_FUNDING, null, NOV_20))
                 .isInstanceOf(NoSuchElementException.class);
     }
+
+    // The evaluation deadline (#68)
+
+    @Test
+    void submitAssessmentIsRejectedAfterTheEvaluationDeadline() {
+        Application application = submittedApplication("Ada");
+        Evaluation evaluation = route(application, alice, NOV_20);
+        em.flush();
+        em.clear();
+        LocalDateTime dayAfter = cycle.getEvaluationDeadline().plusDays(1).atStartOfDay();
+
+        assertThatThrownBy(() -> service.submitAssessment(application.getId(), alice.getId(),
+                Recommendation.RECOMMEND_WITH_FUNDING, "Late", dayAfter))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The evaluation deadline has passed");
+
+        assertThat(reload(evaluation).isSubmitted()).isFalse();
+    }
+
+    @Test
+    void submitAssessmentIsAllowedThroughoutTheEvaluationDeadlineDate() {
+        Application application = submittedApplication("Ada");
+        Evaluation evaluation = route(application, alice, NOV_20);
+        em.flush();
+        em.clear();
+
+        service.submitAssessment(application.getId(), alice.getId(), Recommendation.RECOMMEND_WITH_FUNDING, null,
+                cycle.getEvaluationDeadline().atTime(23, 59));
+
+        assertThat(reload(evaluation).isSubmitted()).isTrue();
+    }
 }

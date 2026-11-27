@@ -97,13 +97,15 @@ public class AdminApplicationService {
     /**
      * Routes a submitted application to professors: one pending {@link Evaluation} per professor,
      * and the application goes UNDER_REVIEW. While it is under review, it can be routed to more
-     * professors, but never to the same professor twice.
+     * professors, but never to the same professor twice. Routing is allowed throughout the cycle's
+     * evaluation deadline date, and rejected after it.
      *
      * @return the evaluations created, one per professor
      */
     @Transactional
     public List<Evaluation> route(Long applicationId, List<Long> professorIds, LocalDateTime now) {
         Application application = submittedApplication(applicationId);
+        application.getCycle().requireEvaluationOpen(now.toLocalDate());
         if (professorIds == null || professorIds.isEmpty()) {
             throw new IllegalArgumentException("Choose at least one professor");
         }

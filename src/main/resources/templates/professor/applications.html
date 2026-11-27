@@ -16,6 +16,7 @@
                 <th scope="col">Applicant</th>
                 <th scope="col">Desired field</th>
                 <th scope="col">Routed</th>
+                <th scope="col">Evaluation deadline</th>
                 <th scope="col">Assessment</th>
             </tr>
             </thead>
@@ -27,7 +28,9 @@
                 </td>
                 <td th:text="${evaluation.application.desiredField} ? ${evaluation.application.desiredField.name} : '-'">AI</td>
                 <td th:text="${#temporals.format(evaluation.assignedAt, 'yyyy-MM-dd HH:mm')}">2026-11-20 09:00</td>
-                <td><span class="status" th:text="${evaluation.submitted} ? 'Submitted' : 'Pending'">Pending</span></td>
+                <td th:text="${#temporals.format(evaluation.application.cycle.evaluationDeadline, 'yyyy-MM-dd')}">2027-03-01</td>
+                <td><span class="status" th:classappend="${evaluation.isOverdue(today)} ? 'status-overdue'"
+                          th:text="${evaluation.submitted} ? 'Submitted' : (${evaluation.isOverdue(today)} ? 'Overdue' : 'Pending')">Pending</span></td>
             </tr>
             </tbody>
         </table>
