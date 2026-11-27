@@ -1,5 +1,6 @@
 package com.sysc4806.gradadmissions.model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
@@ -76,11 +77,20 @@ public class Evaluation {
 		this.notifiedAt = now;
 	}
 
-	/** Records the professor's assessment. It can be submitted only once. */
+	/** Still pending on a date after the cycle's evaluation deadline (the deadline date itself is not late). */
+	public boolean isOverdue(LocalDate today) {
+		return !isSubmitted() && !application.getCycle().isEvaluationOpenOn(today);
+	}
+
+	/**
+	 * Records the professor's assessment. It can be submitted only once, and not after the cycle's
+	 * evaluation deadline (it is allowed throughout the deadline's date).
+	 */
 	public void submitAssessment(Recommendation recommendation, String comments, LocalDateTime now) {
 		if (isSubmitted()) {
 			throw new IllegalStateException("This assessment has already been submitted");
 		}
+		application.getCycle().requireEvaluationOpen(now.toLocalDate());
 		if (recommendation == null) {
 			throw new IllegalArgumentException("Choose a recommendation");
 		}

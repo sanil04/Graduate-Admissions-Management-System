@@ -241,7 +241,7 @@ class ApplicationControllerTest {
 
     @Test
     void saveDraftCallsTheServiceAndShowsANotice() throws Exception {
-        when(service.saveDraft(eq(ada), any(PersonalInfo.class), any(), any()))
+        when(service.saveDraft(eq(ada), any(PersonalInfo.class), any(), any(), any()))
                 .thenReturn(new Application(ada, null,
                         new PersonalInfo("Ada", "Lovelace", "ada@example.com", null, null)));
         when(service.researchFields()).thenReturn(List.of());
@@ -255,7 +255,7 @@ class ApplicationControllerTest {
                 .andExpect(content().string(containsString("Draft saved")))
                 .andExpect(model().attribute("draftSaved", true));
 
-        verify(service).saveDraft(eq(ada), any(PersonalInfo.class), any(), any());
+        verify(service).saveDraft(eq(ada), any(PersonalInfo.class), any(), any(), any());
         verify(service, never()).submit(any(), any(), any(), any(), any());
     }
 
@@ -297,7 +297,7 @@ class ApplicationControllerTest {
         Application draft = new Application();
         ReflectionTestUtils.setField(draft, "id", 5L);
         when(service.findActiveCycleApplicationForApplicant(ada)).thenReturn(Optional.of(draft));
-        when(service.saveDraft(any(), any(), any(), any())).thenThrow(new IllegalArgumentException("Unknown research field"));
+        when(service.saveDraft(any(), any(), any(), any(), any())).thenThrow(new IllegalArgumentException("Unknown research field"));
         when(service.submit(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("The application deadline has passed"));
         for (String endpoint : List.of("/apply", "/apply/draft")) {
             mockMvc.perform(post(endpoint).with(csrf())
@@ -320,5 +320,42 @@ class ApplicationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("applicant/apply"))
                 .andExpect(content().string(containsString("already submitted")));
+    }
+
+    @Test
+    void theFormShowsTheActiveCyclesApplicationDeadline() throws Exception {
+        AdmissionCycle cycle = new AdmissionCycle("Fall 2027", LocalDate.of(2027, 1, 15), LocalDate.of(2027, 3, 1));
+        when(service.activeCycle()).thenReturn(Optional.of(cycle));
+
+        mockMvc.perform(get("/apply"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Application deadline for")))
+                .andExpect(content().string(containsString("Fall 2027")))
+                .andExpect(content().string(containsString("2027-01-15")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("2027-03-01"))));
+    }
+
+    @Test
+    void theFormShowsNoDeadlineWhenNoCycleIsActive() throws Exception {
+        when(service.activeCycle()).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/apply"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Application deadline for"))));
+    }
+
+    @Test
+    void savingADraftAfterTheDeadlineShowsTheErrorOnTheForm() throws Exception {
+        when(service.saveDraft(any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException("The application deadline has passed"));
+
+        mockMvc.perform(post("/apply/draft").with(csrf())
+                        .param("personalInfo.firstName", "Ada").param("personalInfo.lastName", "Lovelace")
+                        .param("personalInfo.email", "ada@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("applicant/apply"))
+                .andExpect(content().string(containsString("The application deadline has passed")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Draft saved"))))
+                .andExpect(model().attributeDoesNotExist("draftSaved"));
     }
 }

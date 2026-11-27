@@ -48,8 +48,9 @@ public class ProfessorApplicationService {
      *
      * @throws NoSuchElementException   if the application doesn't exist or wasn't routed to this professor
      * @throws IllegalArgumentException if no recommendation was chosen or the comments are too long
-     * @throws IllegalStateException    if the assessment was already submitted, including when a
-     *                                  concurrent request submitted it first
+     * @throws IllegalStateException    if the assessment was already submitted (including when a
+     *                                  concurrent request submitted it first) or the cycle's
+     *                                  evaluation deadline has passed
      */
     @Transactional
     public Evaluation submitAssessment(Long applicationId, Long professorId, Recommendation recommendation,

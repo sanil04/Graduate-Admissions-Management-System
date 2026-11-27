@@ -100,4 +100,53 @@ class EvaluationTest {
 			assertThat(recommendation.getLabel()).isNotBlank();
 		}
 	}
+
+	private static final LocalDate EVALUATION_DEADLINE = LocalDate.of(2027, 3, 1);
+
+	@Test
+	void anAssessmentIsRejectedAfterTheEvaluationDeadline() {
+		LocalDateTime dayAfter = EVALUATION_DEADLINE.plusDays(1).atStartOfDay();
+
+		assertThatThrownBy(() -> evaluation.submitAssessment(Recommendation.RECOMMEND_WITH_FUNDING, "Late", dayAfter))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("The evaluation deadline has passed");
+		assertThat(evaluation.isSubmitted()).isFalse();
+		assertThat(evaluation.getComments()).isNull();
+		assertThat(evaluation.getSubmittedAt()).isNull();
+	}
+
+	@Test
+	void anAssessmentIsAllowedThroughoutTheEvaluationDeadlineDate() {
+		Evaluation startOfDay = new Evaluation(evaluation.getApplication(), evaluation.getProfessor(), ASSIGNED);
+
+		startOfDay.submitAssessment(Recommendation.DO_NOT_RECOMMEND, null, EVALUATION_DEADLINE.atStartOfDay());
+		evaluation.submitAssessment(Recommendation.RECOMMEND_WITH_FUNDING, null, EVALUATION_DEADLINE.atTime(23, 59));
+
+		assertThat(startOfDay.isSubmitted()).isTrue();
+		assertThat(evaluation.isSubmitted()).isTrue();
+	}
+
+	@Test
+	void aSubmittedAssessmentStillReportsAlreadySubmittedAfterTheDeadline() {
+		evaluation.submitAssessment(Recommendation.RECOMMEND_NO_FUNDING, null, LATER);
+
+		assertThatThrownBy(() -> evaluation.submitAssessment(Recommendation.DO_NOT_RECOMMEND, null,
+				EVALUATION_DEADLINE.plusDays(1).atStartOfDay()))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("This assessment has already been submitted");
+	}
+
+	@Test
+	void aPendingEvaluationIsOverdueOnlyAfterTheDeadlineDate() {
+		assertThat(evaluation.isOverdue(EVALUATION_DEADLINE.minusDays(1))).isFalse();
+		assertThat(evaluation.isOverdue(EVALUATION_DEADLINE)).isFalse();
+		assertThat(evaluation.isOverdue(EVALUATION_DEADLINE.plusDays(1))).isTrue();
+	}
+
+	@Test
+	void aSubmittedEvaluationIsNeverOverdue() {
+		evaluation.submitAssessment(Recommendation.RECOMMEND_WITH_FUNDING, null, LATER);
+
+		assertThat(evaluation.isOverdue(EVALUATION_DEADLINE.plusYears(1))).isFalse();
+	}
 }

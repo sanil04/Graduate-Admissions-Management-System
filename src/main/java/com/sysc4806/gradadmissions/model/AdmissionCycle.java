@@ -52,4 +52,28 @@ public class AdmissionCycle {
 		this.applicationDeadline = applicationDeadline;
 		this.evaluationDeadline = evaluationDeadline;
 	}
+
+	/** Applications are accepted throughout the application deadline's date. */
+	public boolean isApplicationOpenOn(LocalDate date) {
+		return !date.isAfter(applicationDeadline);
+	}
+
+	/** Assessments are accepted, and applications can be routed, throughout the evaluation deadline's date. */
+	public boolean isEvaluationOpenOn(LocalDate date) {
+		return !date.isAfter(evaluationDeadline);
+	}
+
+	/** @throws IllegalStateException if the application deadline has passed on {@code date} */
+	public void requireApplicationOpen(LocalDate date) {
+		if (!isApplicationOpenOn(date)) {
+			throw new IllegalStateException("The application deadline has passed");
+		}
+	}
+
+	/** @throws IllegalStateException if the evaluation deadline has passed on {@code date} */
+	public void requireEvaluationOpen(LocalDate date) {
+		if (!isEvaluationOpenOn(date)) {
+			throw new IllegalStateException("The evaluation deadline has passed");
+		}
+	}
 }

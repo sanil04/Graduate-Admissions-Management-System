@@ -57,10 +57,19 @@ public class ApplicationService {
         return applications.findById(id);
     }
 
-    /** Saves a draft application for the active cycle; field and professors are optional. */
+    /** The active admission cycle, if any; /apply shows its application deadline. */
+    @Transactional(readOnly = true)
+    public Optional<AdmissionCycle> activeCycle() {
+        return cycles.findByActiveTrue();
+    }
+
+    /**
+     * Saves a draft application for the active cycle; field and professors are optional. Like
+     * submitting, it is rejected once the application deadline has passed at {@code now}.
+     */
     @Transactional
     public Application saveDraft(Applicant applicant, PersonalInfo personalInfo, Long fieldId,
-                                 List<Long> professorIds) {
+                                 List<Long> professorIds, LocalDateTime now) {
         AdmissionCycle cycle = cycles.findByActiveTrue()
                 .orElseThrow(() -> new IllegalStateException("Applications are not open right now"));
         Application application = applications.findByApplicantIdAndCycleId(applicant.getId(), cycle.getId())
@@ -69,6 +78,7 @@ public class ApplicationService {
             throw new IllegalStateException(
                     "You already submitted an application for this admission cycle");
         }
+        cycle.requireApplicationOpen(now.toLocalDate());
         // The contact email is always the account's, whatever the form sent.
         personalInfo.setEmail(applicant.getEmail());
         application.setPersonalInfo(personalInfo);

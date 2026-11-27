@@ -1,5 +1,6 @@
 package com.sysc4806.gradadmissions.web;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.NoSuchElementException;
 
@@ -35,6 +36,7 @@ public class ProfessorApplicationController {
     @GetMapping
     public String list(Model model) {
         model.addAttribute("evaluations", service.assignedTo(currentUsers.currentProfessor().getId()));
+        model.addAttribute("today", LocalDate.now());
         return "professor/applications";
     }
 
@@ -46,12 +48,13 @@ public class ProfessorApplicationController {
         model.addAttribute("evaluation", evaluation);
         model.addAttribute("app", evaluation.getApplication());
         model.addAttribute("recommendations", Recommendation.values());
+        model.addAttribute("today", LocalDate.now());
         return "professor/application";
     }
 
     /**
      * Submits the professor's assessment: one recommendation and optional comments. Rule violations
-     * (nothing chosen, comments too long, already submitted) go back to the page as an error, with what
+     * (nothing chosen, comments too long, already submitted, evaluation deadline passed) go back to the page as an error, with what
      * the professor typed. 404 when the application wasn't routed to this professor.
      */
     @PostMapping("/{applicationId}/assessment")

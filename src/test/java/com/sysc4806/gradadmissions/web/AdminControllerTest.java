@@ -117,7 +117,7 @@ class AdminControllerTest {
         when(service.submittedApplications(null, null, null, NOV_7.toLocalDate(), NOV_7.minusDays(1).toLocalDate()))
                 .thenThrow(new IllegalArgumentException("The start date must be on or before the end date"));
         mockMvc.perform(get("/admin/applications").param("submittedFrom", "2026-11-07")
-                        .param("submittedTo", "2026-11-06")).andExpect(status().isBadRequest());
+                .param("submittedTo", "2026-11-06")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/admin/applications").param("status", "UNKNOWN")).andExpect(status().isBadRequest());
     }
 
@@ -319,5 +319,17 @@ class AdminControllerTest {
                 .andExpect(status().isForbidden());
         verify(service, never()).route(any(), any(), any());
         verify(service, never()).screenOut(any());
+    }
+
+    @Test
+    void routingAfterTheEvaluationDeadlineShowsTheErrorAndEmailsNobody() throws Exception {
+        when(service.route(eq(5L), any(), any()))
+                .thenThrow(new IllegalStateException("The evaluation deadline has passed"));
+
+        mockMvc.perform(post("/admin/applications/5/route").with(csrf()).param("professorIds", "7"))
+                .andExpect(redirectedUrl("/admin/applications/5"))
+                .andExpect(flash().attribute("error", "The evaluation deadline has passed"))
+                .andExpect(flash().attributeCount(1));
+        verify(notifications, never()).notifyRouted(any(), any());
     }
 }
